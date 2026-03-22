@@ -537,6 +537,9 @@ key_bindings_init(void)
 
 		/* Catppuccin theme — auto-switches with macOS dark/light via Mode 2031 hooks. */
 		"set -g @catppuccin_flavour 'mocha'",
+		/* Use window name (#W) instead of pane title (#T) so tabs show dir, not hostname. */
+		"set -g @catppuccin_window_text ' #W'",
+		"set -g @catppuccin_window_current_text ' #W'",
 		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
 		"set-hook -g client-dark-theme  \"set -g @catppuccin_flavour mocha  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
 		"set-hook -g client-light-theme \"set -g @catppuccin_flavour latte  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
