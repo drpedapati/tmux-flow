@@ -457,8 +457,8 @@ key_bindings_init(void)
 		    "  \\033[2m───\\033[0m \\033[1mPHONE\\033[0m \\033[2m── standalone, no combos needed ──────────────────\\033[0m\\n"
 		    "\\n"
 		    "   \\033[1;32mF5\\033[0m  Split ←│→      \\033[1;32mF9\\033[0m   Split ─┬─\\n"
-		    "   \\033[1;32mF10\\033[0m Other pane      \\033[1;32mF11\\033[0m  Kill pane\\033[2m†\\033[0m     \\033[1;32mF12\\033[0m  Popup shell\\n"
-		    "   \\033[1;32mF6\\033[0m  Detach \\033[2m(use to dismiss F12 popup and keep it alive)\\033[0m\\n"
+		    "   \\033[1;32mF10\\033[0m Other pane      \\033[1;32mF11\\033[0m  Kill pane\\033[2m†\\033[0m     \\033[1;32mF12\\033[0m  Session/dir chooser\\n"
+		    "   \\033[1;32mF6\\033[0m  Detach\\n"
 		    "\\n"
 		    "  \\033[2m───\\033[0m \\033[1mARROWS\\033[0m \\033[2m───────────────────────────── no prefix needed ──\\033[0m\\n"
 		    "\\n"
@@ -529,16 +529,19 @@ key_bindings_init(void)
 		"set -g automatic-rename-format '#{b:pane_current_path}'",
 		"set -g allow-rename off",
 
-		/* Catppuccin theme — auto-switches with macOS dark/light via Mode 2031 hooks. */
-		"set -g @catppuccin_flavour 'mocha'",
+		/* Catppuccin theme — auto-switches with macOS dark/light via Mode 2031 hooks.
+		 * Use @catppuccin_flavor (no 'u') — that is the name the plugin reads.
+		 * switch-theme.sh unsets all @thm_* vars first so set -ogq in the theme
+		 * files doesn't lock the palette on the first-loaded flavor forever. */
+		"set -g @catppuccin_flavor 'mocha'",
 		/* Use window name (#W) instead of pane title (#T) so tabs show dir, not hostname. */
 		"set -g @catppuccin_window_text ' #W'",
 		"set -g @catppuccin_window_current_text ' #W'",
 		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
 		"set -g status-right ''",
 		"set -g status-right-length 0",
-		"set-hook -g client-dark-theme  \"set -g @catppuccin_flavour mocha  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux' ; set -g status-right ''\"",
-		"set-hook -g client-light-theme \"set -g @catppuccin_flavour latte  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux' ; set -g status-right ''\"",
+		"set-hook -g client-dark-theme  \"run-shell '~/.tmux/switch-theme.sh mocha'\"",
+		"set-hook -g client-light-theme \"run-shell '~/.tmux/switch-theme.sh latte'\"",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
