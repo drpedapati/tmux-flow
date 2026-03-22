@@ -36,9 +36,13 @@ ELAPSED=$((NOW - LAST_TIME))
 printf '%s|%s|%s' "$DIR" "$CMD" "$NOW" > "$STATE"
 
 PROJECT=$(basename "$DIR")
+MACHINE=$(hostname -s 2>/dev/null || hostname)
+OS="macOS"
 
 curl -s -o /dev/null \
   -X POST \
   -H "Content-Type: application/json" \
-  -d "{\"entity\":\"$DIR\",\"type\":\"app\",\"time\":$NOW,\"project\":\"$PROJECT\",\"language\":\"$CMD\",\"plugin\":\"tmux-custom/1.0\"}" \
+  -H "User-Agent: wakatime/v1.0 (darwin-arm64) go1.21 tmux-custom/1.0" \
+  -H "X-Machine-Name: $MACHINE" \
+  -d "{\"entity\":\"$DIR\",\"type\":\"app\",\"time\":$NOW,\"created_at\":$NOW,\"project\":\"$PROJECT\",\"language\":\"$CMD\",\"editor\":\"tmux-custom\",\"operating_system\":\"$OS\",\"machine\":\"$MACHINE\",\"plugin\":\"tmux-custom/1.0\"}" \
   "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}"
