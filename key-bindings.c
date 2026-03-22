@@ -502,7 +502,7 @@ key_bindings_init(void)
 		"bind -N 'Split top/bottom' -n F9 { split-window -v -c '#{pane_current_path}' }",
 		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
 		"bind -N 'Kill pane' -n F11 { kill-pane }",
-		"bind -N 'Popup shell' -n F12 { display-popup -E -w 90% -h 90% -c '$HOME' 'tmux new-session -A -s scratch' }",
+		"bind -N 'Popup shell' -n F12 { display-popup -E -w 90% -h 90% -d '~' 'tmux new-session -A -s scratch' }",
 
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
