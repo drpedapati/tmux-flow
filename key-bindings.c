@@ -544,9 +544,9 @@ key_bindings_init(void)
 		"set-hook -g client-light-theme \"run-shell '~/.tmux/switch-theme.sh latte'\"",
 
 		/* WakaTime/Wakapi time tracking — fires on pane focus.
-		 * Requires: brew install wakatime-cli + ~/.wakatime.cfg with api_key.
-		 * No-ops silently if wakatime-cli is not installed. */
-		"set-hook -g pane-focus-in 'run-shell -b \"command -v wakatime-cli >/dev/null && wakatime-cli --write --entity \\\"#{pane_current_path}\\\" --entity-type app --plugin \\\"tmux-custom/1.0\\\" 2>/dev/null\"'",
+		 * Silent no-op unless: wakatime-cli is installed AND ~/.wakatime.cfg
+		 * contains a non-empty api_key (covers both waka_ and UUID formats). */
+		"set-hook -g pane-focus-in 'run-shell -b \"command -v wakatime-cli >/dev/null && grep -q \\\"api_key\\s*=\\s*[a-zA-Z0-9]\\\" ~/.wakatime.cfg 2>/dev/null && wakatime-cli --write --entity \\\"#{pane_current_path}\\\" --entity-type app --plugin \\\"tmux-custom/1.0\\\" 2>/dev/null\"'",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
