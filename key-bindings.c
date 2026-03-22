@@ -543,6 +543,16 @@ key_bindings_init(void)
 		"set-hook -g client-dark-theme  \"run-shell '~/.tmux/switch-theme.sh mocha'\"",
 		"set-hook -g client-light-theme \"run-shell '~/.tmux/switch-theme.sh latte'\"",
 
+		/* tmux-resurrect: save/restore sessions across restarts.
+		 * tmux-continuum: auto-save every 15 minutes.
+		 * Install once: git clone https://github.com/tmux-plugins/tmux-resurrect ~/.tmux/plugins/tmux-resurrect
+		 *               git clone https://github.com/tmux-plugins/tmux-continuum ~/.tmux/plugins/tmux-continuum
+		 * Save:    prefix + Ctrl-s   Restore: prefix + Ctrl-r */
+		"set -g @continuum-save-interval '15'",
+		"set -g @continuum-restore 'on'",
+		"run-shell '[ -f ~/.tmux/plugins/tmux-resurrect/resurrect.tmux ] && ~/.tmux/plugins/tmux-resurrect/resurrect.tmux || true'",
+		"run-shell '[ -f ~/.tmux/plugins/tmux-continuum/continuum.tmux ] && ~/.tmux/plugins/tmux-continuum/continuum.tmux || true'",
+
 		/* Wakapi time tracking — fires on pane focus.
 		 * Passes path (project) and running command (claude/codex/lazygit/zsh)
 		 * so Wakapi shows tool breakdown per project in the language field.

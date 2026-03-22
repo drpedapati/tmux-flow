@@ -11,6 +11,8 @@ and layers in opinionated defaults for a modern terminal workflow:
   - Built-in WakaTime/Wakapi time tracking (fires on pane focus)
   - F12 session/directory chooser via sesh + fzf
   - F1 shows full key binding reference
+  - Session save/restore via tmux-resurrect (survives restarts)
+  - Auto-save every 15 min via tmux-continuum
 
 Install
 -------
@@ -20,9 +22,11 @@ Install
 This installs tmux-custom plus all required tools:
 wakatime-cli, sesh, fzf, zoxide.
 
-One-time plugin setup (Catppuccin theme):
+One-time plugin setup:
 
   $ git clone https://github.com/catppuccin/tmux ~/.tmux/plugins/catppuccin
+  $ git clone https://github.com/tmux-plugins/tmux-resurrect ~/.tmux/plugins/tmux-resurrect
+  $ git clone https://github.com/tmux-plugins/tmux-continuum ~/.tmux/plugins/tmux-continuum
 
 Then start tmux:
 
@@ -54,6 +58,17 @@ Key Bindings (no prefix required)
   M-Left/Right  Previous / next window
   M-Up/Down     Previous / next session
   Shift+Arrows  Select pane by direction
+
+Session Backup (resurrect + continuum)
+-----------------------------------
+
+Sessions are saved automatically every 15 minutes and restored on startup.
+
+  prefix + Ctrl-s   Save session now
+  prefix + Ctrl-r   Restore last saved session
+
+Requires the one-time plugin clone above. Saves to ~/.local/share/tmux/resurrect/
+by default. Survives kill-server, reboots, and brew upgrades.
 
 Time Tracking (Wakapi)
 -----------------------------------
