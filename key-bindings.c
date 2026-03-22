@@ -519,6 +519,10 @@ key_bindings_init(void)
 		"bind -N 'Resize pane right' -n M-S-Right { resize-pane -R }",
 		"bind -N 'Scrollback' -n M-PPage { copy-mode; send-keys PPage }",
 
+		/* Pane border directory labels. */
+		"set -g pane-border-status top",
+		"set -g pane-border-format ' #{b:pane_current_path} '",
+
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
 		"bind -Tcopy-mode C-a { send -X start-of-line }",
