@@ -2,7 +2,8 @@ tmux-custom (drpedapati fork)
 =============================
 
 This is a custom fork of tmux (https://github.com/tmux/tmux).
-It tracks upstream and adds custom patches.
+It tracks upstream and adds custom patches, opinionated defaults,
+F-key bindings, Catppuccin theming, and built-in time tracking.
 
 Install via Homebrew:
 
@@ -11,6 +12,37 @@ Install via Homebrew:
 Or install the latest from this repo:
 
 	$ brew install --HEAD drpedapati/tools/tmux-custom
+
+After install, also install optional dependencies:
+
+	$ brew install wakatime-cli sesh fzf zoxide
+
+Then install tmux plugins (one-time):
+
+	$ git clone https://github.com/catppuccin/tmux ~/.tmux/plugins/catppuccin
+	$ git clone https://github.com/omerxx/tmux-sessionx ~/.tmux/plugins/tmux-sessionx  # optional
+
+Time Tracking (WakaTime / Wakapi)
+----------------------------------
+tmux-custom sends a heartbeat to WakaTime or Wakapi every time you
+switch panes, so your coding time is tracked automatically by project.
+
+1. Install the CLI:
+
+	$ brew install wakatime-cli
+
+2. Create ~/.wakatime.cfg:
+
+	[settings]
+	api_key = YOUR_API_KEY_HERE
+
+	# WakaTime.com (hosted): key starts with waka_
+	# Wakapi (self-hosted):  UUID key + add this line:
+	# api_url = https://your-wakapi-server/api/
+
+3. Start tmux. Heartbeats fire automatically — no further setup needed.
+
+Tracking is a no-op if wakatime-cli is not installed (no errors).
 
 --------
 

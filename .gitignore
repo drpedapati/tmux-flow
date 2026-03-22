@@ -1,3 +1,5 @@
+.env.local
+tmux-*.log
 *.core
 *.dSYM
 *.diff
