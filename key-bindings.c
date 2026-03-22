@@ -502,7 +502,14 @@ key_bindings_init(void)
 		"bind -N 'Split top/bottom' -n F9 { split-window -v -c '#{pane_current_path}' }",
 		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
 		"bind -N 'Kill pane (confirm if last)' -n F11 { if-shell -F '#{==:#{window_panes},1}' { confirm-before -p 'last pane — kill window? (y/n)' kill-pane } { kill-pane } }",
-		"bind -N 'Popup shell' -n F12 { display-popup -E -w 90% -h 90% -d '~' 'tmux new-session -A -s scratch' }",
+		/* tmux-sessionx: fzf session chooser with previews. */
+		"set -g @sessionx-bind 'F12'",
+		"set -g @sessionx-prefix 'off'",
+		"set -g @sessionx-window-height '85%'",
+		"set -g @sessionx-window-width '85%'",
+		"set -g @sessionx-preview-ratio '60%'",
+		"set -g @sessionx-filter-current 'false'",
+		"run-shell '~/.tmux/plugins/tmux-sessionx/sessionx.tmux'",
 
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
@@ -522,6 +529,12 @@ key_bindings_init(void)
 		/* Pane border directory labels. */
 		"set -g pane-border-status top",
 		"set -g pane-border-format ' #{b:pane_current_path} '",
+
+		/* Catppuccin theme — auto-switches with macOS dark/light via Mode 2031 hooks. */
+		"set -g @catppuccin_flavour 'mocha'",
+		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
+		"set-hook -g client-dark-theme  \"set -g @catppuccin_flavour mocha  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
+		"set-hook -g client-light-theme \"set -g @catppuccin_flavour latte  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
