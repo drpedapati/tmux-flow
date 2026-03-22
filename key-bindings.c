@@ -503,7 +503,6 @@ key_bindings_init(void)
 		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
 		"bind -N 'Kill pane' -n F11 { kill-pane }",
 		"bind -N 'Popup shell' -n F12 { display-popup -E -w 90% -h 90% -d '~' 'tmux new-session -A -s scratch' }",
-		"bind -N 'Detach in scratch popup, send Ctrl-D elsewhere' -n C-d { if-shell -F '#{==:#{session_name},scratch}' { detach-client } { send-keys C-d } }",
 
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
