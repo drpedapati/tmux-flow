@@ -503,7 +503,8 @@ key_bindings_init(void)
 		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
 		"bind -N 'Kill pane (confirm if last)' -n F11 { if-shell -F '#{==:#{window_panes},1}' { confirm-before -p 'last pane — kill window? (y/n)' kill-pane } { kill-pane } }",
 		/* F12: sesh session/dir chooser via fzf in a popup. */
-		"bind -N 'Session chooser' -n F12 { display-popup -E -w 80% -h 80% 'sesh connect \"$(sesh list | fzf --height 100% --reverse --border --prompt \"  session: \" --no-sort)\"' }",
+		/* SESSION=$(sesh list|fzf) exits non-zero on Escape; && skips sesh connect. */
+		"bind -N 'Session chooser' -n F12 { display-popup -E -w 80% -h 80% 'SESSION=$(sesh list | fzf --no-sort --reverse --border) && sesh connect \"$SESSION\"' }",
 
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
