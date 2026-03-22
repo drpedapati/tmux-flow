@@ -1,8 +1,10 @@
 #!/bin/sh
 # Send a Wakapi heartbeat on pane focus.
-# Captures: project (dir basename), entity (full path), language (running command).
-# Deduplicates on path+command pair — switches between claude/zsh in same
-# project fire separately. Same path+command: 120s cooldown.
+# project  = git repo root name (or dir basename if not in a repo)
+# branch   = current git branch
+# editor   = pane_current_command (claude, codex, lazygit, zsh, ...)
+# category = same as editor
+# Deduplicates on path+command pair — 120s cooldown on same pair.
 
 DIR="$1"
 CMD="$2"
@@ -35,14 +37,28 @@ ELAPSED=$((NOW - LAST_TIME))
 
 printf '%s|%s|%s' "$DIR" "$CMD" "$NOW" > "$STATE"
 
-PROJECT=$(basename "$DIR")
+# Use git root as project name so subdirectory panes still report the right repo
+GIT_ROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null)
+if [ -n "$GIT_ROOT" ]; then
+    PROJECT=$(basename "$GIT_ROOT")
+    BRANCH=$(git -C "$DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)
+else
+    PROJECT=$(basename "$DIR")
+    BRANCH=""
+fi
+
 MACHINE=$(hostname -s 2>/dev/null || hostname)
-OS="macOS"
+
+if [ -n "$BRANCH" ]; then
+    BRANCH_JSON=",\"branch\":\"$BRANCH\""
+else
+    BRANCH_JSON=""
+fi
 
 curl -s -o /dev/null \
   -X POST \
   -H "Content-Type: application/json" \
   -H "User-Agent: wakatime/v1.0 (darwin-arm64) go1.21 tmux-custom/1.0" \
   -H "X-Machine-Name: $MACHINE" \
-  -d "{\"entity\":\"$DIR\",\"type\":\"app\",\"time\":$NOW,\"created_at\":$NOW,\"project\":\"$PROJECT\",\"language\":\"$CMD\",\"editor\":\"tmux-custom\",\"operating_system\":\"$OS\",\"machine\":\"$MACHINE\",\"plugin\":\"tmux-custom/1.0\"}" \
+  -d "{\"entity\":\"$DIR\",\"type\":\"app\",\"time\":$NOW,\"created_at\":$NOW,\"project\":\"$PROJECT\"$BRANCH_JSON,\"category\":\"$CMD\",\"editor\":\"$CMD\",\"operating_system\":\"macOS\",\"machine\":\"$MACHINE\"}" \
   "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}"
