@@ -497,6 +497,13 @@ key_bindings_init(void)
 		"bind -N 'Break pane to window' -n M-F11 { break-pane }",
 		"bind -N 'Zoom pane' -n S-F11 { resize-pane -Z }",
 
+		/* Phone-friendly standalone F-keys (no modifier combos required). */
+		"bind -N 'Split left/right' -n F5 { split-window -h -c '#{pane_current_path}' }",
+		"bind -N 'Split top/bottom' -n F9 { split-window -v -c '#{pane_current_path}' }",
+		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
+		"bind -N 'Kill pane' -n F11 { kill-pane }",
+		"bind -N 'Popup shell' -n F12 { display-popup -E -w 90% -h 90% }",
+
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
 		"bind -N 'Next window' -n M-Right { next-window }",
