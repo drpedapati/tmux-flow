@@ -543,12 +543,12 @@ key_bindings_init(void)
 		"set-hook -g client-dark-theme  \"run-shell '~/.tmux/switch-theme.sh mocha'\"",
 		"set-hook -g client-light-theme \"run-shell '~/.tmux/switch-theme.sh latte'\"",
 
-		/* Wakapi/WakaTime time tracking — fires on pane focus via curl.
-		 * Uses ~/.tmux/wakatime-heartbeat.sh which reads api_key + api_url
-		 * from ~/.wakatime.cfg. Silent no-op if config absent or key unset.
-		 * curl used directly to support UUID-format Wakapi keys (wakatime-cli
-		 * only accepts waka_ prefix keys). */
-		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh \\\"#{pane_current_path}\\\"\"'",
+		/* Wakapi time tracking — fires on pane focus.
+		 * Passes path (project) and running command (claude/codex/lazygit/zsh)
+		 * so Wakapi shows tool breakdown per project in the language field.
+		 * Deduplicates on path+command: switching claude->zsh in same project
+		 * fires immediately; same pair has 120s cooldown. */
+		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh \\\"#{pane_current_path}\\\" \\\"#{pane_current_command}\\\"\"'",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
