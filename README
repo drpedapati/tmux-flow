@@ -55,23 +55,23 @@ Key Bindings (no prefix required)
   M-Up/Down     Previous / next session
   Shift+Arrows  Select pane by direction
 
-Time Tracking (WakaTime / Wakapi)
+Time Tracking (Wakapi)
 -----------------------------------
 
 tmux-custom fires a heartbeat every time you switch panes, tracking
-time automatically by project directory. Works with wakatime.com or
-a self-hosted Wakapi instance.
+time automatically by project directory. Sends to wakapi.dev — a
+free, open-source WakaTime-compatible backend. Works across all your
+machines with one account.
 
 Setup:
 
-  1. Create ~/.wakatime.cfg:
+  1. Create an account at https://wakapi.dev and copy your API key.
+
+  2. Create ~/.wakatime.cfg:
 
        [settings]
        api_key = YOUR_KEY_HERE
-
-       # WakaTime.com: key format is waka_xxxxxxxxxxxx
-       # Wakapi (self-hosted): UUID format key, also add:
-       # api_url = https://your-wakapi-server/api/
+       api_url = https://wakapi.dev/api
 
   2. Start tmux — tracking begins automatically.
 
