@@ -530,6 +530,11 @@ key_bindings_init(void)
 		"set -g pane-border-status top",
 		"set -g pane-border-format ' #{b:pane_current_path} '",
 
+		/* Window naming: show current dir, block shell from overriding with hostname. */
+		"set -g automatic-rename on",
+		"set -g automatic-rename-format '#{b:pane_current_path}'",
+		"set -g allow-rename off",
+
 		/* Catppuccin theme — auto-switches with macOS dark/light via Mode 2031 hooks. */
 		"set -g @catppuccin_flavour 'mocha'",
 		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
