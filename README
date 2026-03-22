@@ -1,3 +1,19 @@
+tmux-custom (drpedapati fork)
+=============================
+
+This is a custom fork of tmux (https://github.com/tmux/tmux).
+It tracks upstream and adds custom patches.
+
+Install via Homebrew:
+
+	$ brew install drpedapati/tools/tmux-custom
+
+Or install the latest from this repo:
+
+	$ brew install --HEAD drpedapati/tools/tmux-custom
+
+--------
+
 Welcome to tmux!
 
 tmux is a terminal multiplexer: it enables a number of terminals to be created,
@@ -32,7 +48,7 @@ configure with --enable-utempter to enable this.
 To get and build the latest from version control - note that this requires
 autoconf, automake and pkg-config:
 
-	$ git clone https://github.com/tmux/tmux.git
+	$ git clone https://github.com/drpedapati/tmux.git
 	$ cd tmux
 	$ sh autogen.sh
 	$ ./configure && make
