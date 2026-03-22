@@ -1,48 +1,81 @@
 tmux-custom (drpedapati fork)
 =============================
 
-This is a custom fork of tmux (https://github.com/tmux/tmux).
-It tracks upstream and adds custom patches, opinionated defaults,
-F-key bindings, Catppuccin theming, and built-in time tracking.
+A custom fork of tmux that tracks upstream (https://github.com/tmux/tmux)
+and layers in opinionated defaults for a modern terminal workflow:
 
-Install via Homebrew:
+  - F-key bindings with no prefix required (phone-friendly)
+  - Catppuccin theme with automatic macOS dark/light switching
+  - Tabs show current directory name instead of hostname
+  - `tmux` with no args attaches to existing session or creates one
+  - Built-in WakaTime/Wakapi time tracking (fires on pane focus)
+  - F12 session/directory chooser via sesh + fzf
+  - F1 shows full key binding reference
 
-	$ brew install drpedapati/tools/tmux-custom
+Install
+-------
 
-Or install the latest from this repo:
+  $ brew install --HEAD drpedapati/tools/tmux-custom
 
-	$ brew install --HEAD drpedapati/tools/tmux-custom
+This installs tmux-custom plus all required tools:
+wakatime-cli, sesh, fzf, zoxide.
 
-After install, also install optional dependencies:
+One-time plugin setup (Catppuccin theme):
 
-	$ brew install wakatime-cli sesh fzf zoxide
+  $ git clone https://github.com/catppuccin/tmux ~/.tmux/plugins/catppuccin
 
-Then install tmux plugins (one-time):
+Then start tmux:
 
-	$ git clone https://github.com/catppuccin/tmux ~/.tmux/plugins/catppuccin
-	$ git clone https://github.com/omerxx/tmux-sessionx ~/.tmux/plugins/tmux-sessionx  # optional
+  $ tmux
+
+Key Bindings (no prefix required)
+-----------------------------------
+
+  F1            Key binding reference (this list, inside tmux)
+  F2            New window
+  F3 / F4       Previous / next window
+  F5            Split left/right
+  F6            Detach
+  F7            Copy mode
+  F8            Rename window
+  F9            Split top/bottom
+  F10           Other pane
+  F11           Kill pane
+  F12           Session/directory chooser (sesh + fzf)
+
+  Shift+F3/F4   Previous / next pane
+  Ctrl+F3/F4    Swap pane backward / forward
+  Ctrl+F6       Kill pane
+  Ctrl+F8       Rename session
+  Shift+F8      Cycle layout
+  Shift+F11     Zoom pane
+  Alt+F11       Break pane to new window
+
+  M-Left/Right  Previous / next window
+  M-Up/Down     Previous / next session
+  Shift+Arrows  Select pane by direction
 
 Time Tracking (WakaTime / Wakapi)
-----------------------------------
-tmux-custom sends a heartbeat to WakaTime or Wakapi every time you
-switch panes, so your coding time is tracked automatically by project.
+-----------------------------------
 
-1. Install the CLI:
+tmux-custom fires a heartbeat every time you switch panes, tracking
+time automatically by project directory. Works with wakatime.com or
+a self-hosted Wakapi instance.
 
-	$ brew install wakatime-cli
+Setup:
 
-2. Create ~/.wakatime.cfg:
+  1. Create ~/.wakatime.cfg:
 
-	[settings]
-	api_key = YOUR_API_KEY_HERE
+       [settings]
+       api_key = YOUR_KEY_HERE
 
-	# WakaTime.com (hosted): key starts with waka_
-	# Wakapi (self-hosted):  UUID key + add this line:
-	# api_url = https://your-wakapi-server/api/
+       # WakaTime.com: key format is waka_xxxxxxxxxxxx
+       # Wakapi (self-hosted): UUID format key, also add:
+       # api_url = https://your-wakapi-server/api/
 
-3. Start tmux. Heartbeats fire automatically — no further setup needed.
+  2. Start tmux — tracking begins automatically.
 
-Tracking is a no-op if wakatime-cli is not installed (no errors).
+  No ~/.wakatime.cfg or no api_key = silent no-op, zero overhead.
 
 --------
 
