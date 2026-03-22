@@ -502,14 +502,8 @@ key_bindings_init(void)
 		"bind -N 'Split top/bottom' -n F9 { split-window -v -c '#{pane_current_path}' }",
 		"bind -N 'Other pane' -n F10 { select-pane -t :.+ }",
 		"bind -N 'Kill pane (confirm if last)' -n F11 { if-shell -F '#{==:#{window_panes},1}' { confirm-before -p 'last pane — kill window? (y/n)' kill-pane } { kill-pane } }",
-		/* tmux-sessionx: fzf session chooser with previews. */
-		"set -g @sessionx-bind 'F12'",
-		"set -g @sessionx-prefix 'off'",
-		"set -g @sessionx-window-height '85%'",
-		"set -g @sessionx-window-width '85%'",
-		"set -g @sessionx-preview-ratio '60%'",
-		"set -g @sessionx-filter-current 'false'",
-		"run-shell '~/.tmux/plugins/tmux-sessionx/sessionx.tmux'",
+		/* F12: sesh session/dir chooser via fzf in a popup. */
+		"bind -N 'Session chooser' -n F12 { display-popup -E -w 80% -h 80% 'sesh connect \"$(sesh list | fzf --height 100% --reverse --border --prompt \"  session: \" --no-sort)\"' }",
 
 		/* Byobu-style arrow key bindings (no prefix required). */
 		"bind -N 'Previous window' -n M-Left { previous-window }",
