@@ -536,8 +536,10 @@ key_bindings_init(void)
 		"set -g @catppuccin_window_text ' #W'",
 		"set -g @catppuccin_window_current_text ' #W'",
 		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
-		"set-hook -g client-dark-theme  \"set -g @catppuccin_flavour mocha  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
-		"set-hook -g client-light-theme \"set -g @catppuccin_flavour latte  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'\"",
+		"set -g status-right ''",
+		"set -g status-right-length 0",
+		"set-hook -g client-dark-theme  \"set -g @catppuccin_flavour mocha  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux' ; set -g status-right ''\"",
+		"set-hook -g client-light-theme \"set -g @catppuccin_flavour latte  ; run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux' ; set -g status-right ''\"",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
