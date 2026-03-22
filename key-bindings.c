@@ -558,6 +558,7 @@ key_bindings_init(void)
 		 * so Wakapi shows tool breakdown per project in the language field.
 		 * Deduplicates on path+command: switching claude->zsh in same project
 		 * fires immediately; same pair has 120s cooldown. */
+		"set -g focus-events on",
 		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh \\\"#{pane_current_path}\\\" \\\"#{pane_current_command}\\\"\"'",
 
 		/* Copy mode (emacs) keys. */
