@@ -45,7 +45,7 @@ sanitize_header_value() {
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tmux-flow"
 STATE_FILE="$STATE_DIR/wakapi-heartbeat.state"
 umask 077
-mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+mkdir -p "$STATE_DIR" 2>/dev/null
 
 LAST_ENTITY=""
 LAST_CMD=""
@@ -62,6 +62,8 @@ case "$LAST_TIME" in
         LAST_TIME=0
         ;;
 esac
+# Clamp future timestamps (clock skew / corrupt state) so we don't freeze dedup
+[ "$LAST_TIME" -gt "$NOW" ] && LAST_TIME=0
 ELAPSED=$((NOW - LAST_TIME))
 
 [ "$DIR" = "$LAST_ENTITY" ] && [ "$CMD" = "$LAST_CMD" ] && [ "$ELAPSED" -lt 120 ] && exit 0
@@ -100,7 +102,7 @@ HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
   -H "User-Agent: wakatime/15.0.0 (darwin-arm64) ${CMD_HEADER}/1.0 tmux-flow-wakatime/1.0" \
   -H "X-Machine-Name: $MACHINE_HEADER" \
   -d "$PAYLOAD" \
-  "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}")
+  -- "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}")
 CURL_STATUS=$?
 [ "$CURL_STATUS" -eq 0 ] || exit 0
 

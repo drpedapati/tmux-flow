@@ -559,7 +559,7 @@ key_bindings_init(void)
 		 * Deduplicates on path+command: switching claude->zsh in same project
 		 * fires immediately; same pair has 120s cooldown. */
 		"set -g focus-events on",
-		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh \\\"#{q:pane_current_path}\\\" \\\"#{q:pane_current_command}\\\"\"'",
+		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh #{q:pane_current_path} #{q:pane_current_command}\"'",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
