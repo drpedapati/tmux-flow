@@ -10,6 +10,17 @@ DIR="$1"
 CMD="$2"
 [ -z "$DIR" ] && exit 0
 
+# Claude Code's binary is named by version (e.g. "2.1.81") because the
+# symlink ~/.local/bin/claude -> .../versions/2.1.81 and the kernel
+# reports the real filename.  Map version-only names back to "claude".
+case "$CMD" in
+    [0-9]*.[0-9]*.[0-9]*)
+        if [ -L "$HOME/.local/bin/claude" ]; then
+            CMD="claude"
+        fi
+        ;;
+esac
+
 CFG="$HOME/.wakatime.cfg"
 [ -f "$CFG" ] || exit 0
 
