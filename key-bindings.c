@@ -537,7 +537,7 @@ key_bindings_init(void)
 		/* Use window name (#W) instead of pane title (#T) so tabs show dir, not hostname. */
 		"set -g @catppuccin_window_text ' #W'",
 		"set -g @catppuccin_window_current_text ' #W'",
-		"run-shell '~/.tmux/plugins/catppuccin/catppuccin.tmux'",
+		"run-shell '[ -f ~/.tmux/plugins/catppuccin/catppuccin.tmux ] && ~/.tmux/plugins/catppuccin/catppuccin.tmux || true'",
 		"set -g status-right ''",
 		"set -g status-right-length 0",
 		"set-hook -g client-dark-theme  \"run-shell '~/.tmux/switch-theme.sh mocha'\"",
