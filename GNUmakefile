@@ -8,13 +8,18 @@ REPO  := drpedapati/tmux-flow
 TAP   := /tmp/homebrew-tools
 FORMULA := $(TAP)/Formula/tmux-flow.rb
 
-# ── Fall-through to autotools ────────────────────────────────────────
-# Any target not defined here delegates to the autotools Makefile.
+.PHONY: release deploy brew-install version
+
+# ── Default: fall through to autotools ───────────────────────────────
+.DEFAULT_GOAL := autotools-fallthrough
+autotools-fallthrough:
+	@if [ -f Makefile ]; then $(MAKE) -f Makefile; \
+	else echo "Run 'sh autogen.sh && ./configure' first."; exit 1; fi
+
+# Any unknown target delegates to the autotools Makefile.
 %:
 	@if [ -f Makefile ]; then $(MAKE) -f Makefile $@; \
 	else echo "Run 'sh autogen.sh && ./configure' first."; exit 1; fi
-
-.PHONY: release deploy brew-install version
 
 # ── Release: commit, tag, update formula, brew upgrade ───────────────
 # Usage: make release V=1.2
