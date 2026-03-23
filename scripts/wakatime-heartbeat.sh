@@ -42,7 +42,7 @@ sanitize_header_value() {
 }
 
 # Dedup on path+command. Either changing means fire immediately.
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tmux-custom"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tmux-flow"
 STATE_FILE="$STATE_DIR/wakapi-heartbeat.state"
 umask 077
 mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
@@ -97,7 +97,7 @@ PAYLOAD="$PAYLOAD}"
 HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
   -X POST \
   -H "Content-Type: application/json" \
-  -H "User-Agent: wakatime/15.0.0 (darwin-arm64) ${CMD_HEADER}/1.0 tmux-custom-wakatime/1.0" \
+  -H "User-Agent: wakatime/15.0.0 (darwin-arm64) ${CMD_HEADER}/1.0 tmux-flow-wakatime/1.0" \
   -H "X-Machine-Name: $MACHINE_HEADER" \
   -d "$PAYLOAD" \
   "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}")

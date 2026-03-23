@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a custom fork of tmux (drpedapati/tmux) that tracks the official upstream (tmux/tmux). The fork is used for developing, testing, and distributing custom modifications via a Homebrew tap (`drpedapati`). Current version: `next-3.7`.
+This is a custom fork of tmux (drpedapati/tmux-flow) that tracks the official upstream (tmux/tmux). The fork is used for developing, testing, and distributing custom modifications via a Homebrew tap (`drpedapati`). Current version: `next-3.7`.
 
 **Remotes:**
-- `origin` → `https://github.com/drpedapati/tmux.git` (this fork)
+- `origin` → `https://github.com/drpedapati/tmux-flow.git` (this fork)
 - `upstream` → `https://github.com/tmux/tmux.git` (official tmux)
 
 ## Build Commands
@@ -80,14 +80,14 @@ The fork syncs with upstream tmux via the OpenBSD base system. See the `SYNCING`
 
 ## Homebrew Tap Distribution
 
-The custom build is distributed as `tmux-custom` via the `drpedapati/tools` Homebrew tap.
+The custom build is distributed as `tmux-flow` via the `drpedapati/tools` Homebrew tap.
 
-- **Formula:** `drpedapati/homebrew-tools` repo → `Formula/tmux-custom.rb`
-- **Install:** `brew install drpedapati/tools/tmux-custom`
-- **Install HEAD (this repo's main branch):** `brew install --HEAD drpedapati/tools/tmux-custom`
+- **Formula:** `drpedapati/homebrew-tools` repo → `Formula/tmux-flow.rb`
+- **Install:** `brew install drpedapati/tools/tmux-flow`
+- **Install HEAD (this repo's main branch):** `brew install --HEAD drpedapati/tools/tmux-flow`
 - **Conflicts with** stock `tmux` formula
 
-The formula builds with `--enable-sixel` and `--enable-utf8proc`. The stable URL currently points to upstream 3.6a tarball; HEAD builds from `drpedapati/tmux` main branch. When distributing custom patches, use `--HEAD` or update the stable URL/sha256 to point to a custom release.
+The formula builds with `--enable-sixel` and `--enable-utf8proc`. The stable URL currently points to upstream 3.6a tarball; HEAD builds from `drpedapati/tmux-flow` main branch. When distributing custom patches, use `--HEAD` or update the stable URL/sha256 to point to a custom release.
 
 ## Man Page
 

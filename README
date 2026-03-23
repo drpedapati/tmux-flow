@@ -1,5 +1,5 @@
-tmux-custom (drpedapati fork)
-=============================
+tmux-flow
+=========
 
 A custom fork of tmux that tracks upstream (https://github.com/tmux/tmux)
 and layers in opinionated defaults for a modern terminal workflow:
@@ -17,9 +17,9 @@ and layers in opinionated defaults for a modern terminal workflow:
 Install
 -------
 
-  $ brew install --HEAD drpedapati/tools/tmux-custom
+  $ brew install drpedapati/tools/tmux-flow
 
-This installs tmux-custom plus all required tools:
+This installs tmux-flow plus all required tools:
 wakatime-cli, sesh, fzf, zoxide.
 
 Then start tmux:
@@ -67,7 +67,7 @@ by default. Survives kill-server, reboots, and brew upgrades.
 Time Tracking (Wakapi)
 -----------------------------------
 
-tmux-custom fires a heartbeat every time you switch panes, tracking
+tmux-flow fires a heartbeat every time you switch panes, tracking
 time automatically by project directory. Sends to wakapi.dev — a
 free, open-source WakaTime-compatible backend. Works across all your
 machines with one account.
@@ -122,7 +122,7 @@ configure with --enable-utempter to enable this.
 To get and build the latest from version control - note that this requires
 autoconf, automake and pkg-config:
 
-	$ git clone https://github.com/drpedapati/tmux.git
+	$ git clone https://github.com/drpedapati/tmux-flow.git
 	$ cd tmux
 	$ sh autogen.sh
 	$ ./configure && make
