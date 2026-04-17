@@ -2,6 +2,16 @@
 # Switch Catppuccin flavor at runtime.
 # set -ogq in the plugin theme files means colors only set if unset —
 # must wipe all @thm_* vars first so the new palette takes effect.
+
+# Mutex: if another instance is already switching, bail. Terminals can
+# send theme-detection responses in rapid succession, which fires the
+# client-*-theme hook multiple times and piles up tmux commands.
+LOCK="/tmp/tmux-flow-switch-theme-$(id -u).lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+    exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+
 FLAVOR=$1
 tmux show-options -g | awk '/^@thm_/{print $1}' | xargs -I% tmux set -ug %
 tmux set -g @catppuccin_flavor "$FLAVOR"
