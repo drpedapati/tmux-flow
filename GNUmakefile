@@ -60,7 +60,9 @@ deploy:
 	@echo "    URL: $(URL)"
 	@echo "    SHA: $(SHA)"
 	sed -i '' 's|url "https://github.com/$(REPO)/archive/refs/tags/.*"|url "$(URL)"|' $(FORMULA)
-	sed -i '' 's|sha256 ".*"|sha256 "$(SHA)"|' $(FORMULA)
+	# Only rewrite the FIRST sha256 (the top-level formula one),
+	# leaving the completion resource's sha256 further down untouched.
+	awk -v sha="$(SHA)" 'BEGIN{done=0} /^  sha256 / && !done {sub(/"[a-f0-9]+"/, "\""sha"\""); done=1} {print}' $(FORMULA) > $(FORMULA).tmp && mv $(FORMULA).tmp $(FORMULA)
 	sed -i '' 's|version ".*"|version "$(V)"|' $(FORMULA)
 	cd $(TAP) && git add Formula/tmux-flow.rb && \
 		git commit -m "tmux-flow v$(V)" && \
