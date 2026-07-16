@@ -1,10 +1,44 @@
 #!/bin/sh
-# Send a Wakapi heartbeat on pane focus.
+# Send Wakapi heartbeats on pane focus and while clients remain attached.
 # project  = git repo root name (or dir basename if not in a repo)
 # branch   = current git branch
 # editor   = pane_current_command (claude, codex, lazygit, zsh, ...)
 # category = same as editor
 # Deduplicates on path+command pair — 120s cooldown on same pair.
+
+# Capability marker used by the client-attached hook to avoid invoking an old
+# retained Homebrew helper with the new --loop calling convention.
+TMUX_FLOW_HEARTBEAT_LOOP=1
+
+if [ "$1" = "--loop" ]; then
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tmux-flow"
+    SERVER_KEY=$(printf '%s' "${TMUX%%,*}" | cksum | awk '{print $1}')
+    LOOP_DIR="$STATE_DIR/heartbeat-loop-${SERVER_KEY}"
+    LOOP_PID_FILE="$LOOP_DIR/pid"
+    umask 077
+    mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+
+    if ! mkdir "$LOOP_DIR" 2>/dev/null; then
+        LOOP_PID=$(cat "$LOOP_PID_FILE" 2>/dev/null)
+        case "$LOOP_PID" in
+            ''|*[!0-9]*) ;;
+            *) kill -0 "$LOOP_PID" 2>/dev/null && exit 0 ;;
+        esac
+        rm -rf "$LOOP_DIR" 2>/dev/null
+        mkdir "$LOOP_DIR" 2>/dev/null || exit 0
+    fi
+    printf '%s\n' "$$" > "$LOOP_PID_FILE"
+    trap 'rm -rf "$LOOP_DIR" 2>/dev/null' EXIT INT TERM
+
+    while PANE_IDS=$(tmux list-clients -F '#{pane_id}' 2>/dev/null) &&
+        [ -n "$PANE_IDS" ]; do
+        printf '%s\n' "$PANE_IDS" | sort -u | while IFS= read -r PANE_ID; do
+            [ -n "$PANE_ID" ] && "$0" "$PANE_ID"
+        done
+        sleep 60
+    done
+    exit 0
+fi
 
 PANE_ID="$1"
 [ -z "$PANE_ID" ] && exit 0

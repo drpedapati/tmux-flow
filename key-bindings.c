@@ -561,6 +561,7 @@ key_bindings_init(void)
 		 * fires immediately; same pair has 120s cooldown. */
 		"set -g focus-events on",
 		"set-hook -g pane-focus-in 'run-shell -b \"helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/wakatime-heartbeat.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/wakatime-heartbeat.sh; \\\"\\$helper\\\" #{pane_id}\"'",
+		"set-hook -g client-attached 'run-shell -b \"helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/wakatime-heartbeat.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/wakatime-heartbeat.sh; grep -q TMUX_FLOW_HEARTBEAT_LOOP=1 \\\"\\$helper\\\" 2>/dev/null && \\\"\\$helper\\\" --loop\"'",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
