@@ -32,23 +32,36 @@ release:
 		echo "Refusing release: checkout must be on main."; \
 		exit 1; \
 	fi
-	@echo "==> Committing and pushing..."
-	git add -A && git status --short
-	@if git diff --cached --quiet; then \
-		echo "    (nothing to commit)"; \
-	else \
-		git commit -m "Release v$(V)"; \
+	@if ! git diff --quiet || ! git diff --cached --quiet || \
+		[ -n "$$(git status --porcelain --untracked-files=normal)" ]; then \
+		echo "Refusing release: worktree and index must be clean."; \
+		exit 1; \
 	fi
-	git push origin main
+	@echo "==> Preflighting reviewed main and publishing access..."
+	git fetch origin main
+	@test "$$(git rev-parse HEAD)" = "$$(git rev-parse origin/main)" || \
+		{ echo "Refusing release: main must exactly match origin/main."; exit 1; }
+	@! git rev-parse -q --verify "refs/tags/v$(V)" >/dev/null || \
+		{ echo "Refusing release: local tag v$(V) already exists."; exit 1; }
+	@! git ls-remote --exit-code --tags origin "refs/tags/v$(V)" >/dev/null 2>&1 || \
+		{ echo "Refusing release: remote tag v$(V) already exists."; exit 1; }
+	@! gh release view "v$(V)" --repo $(REPO) >/dev/null 2>&1 || \
+		{ echo "Refusing release: GitHub release v$(V) already exists."; exit 1; }
+	gh auth status >/dev/null
+	@if [ ! -d "$(TAP)" ]; then \
+		git clone https://github.com/drpedapati/homebrew-tools.git $(TAP); \
+	fi
+	cd $(TAP) && git pull --ff-only && git diff --quiet && \
+		git diff --cached --quiet && test -f Formula/tmux-flow.rb
 	@echo "==> Tagging v$(V)..."
 	git tag "v$(V)"
 	git push origin "v$(V)"
+	@echo "==> Updating Homebrew formula..."
+	$(MAKE) deploy V=$(V)
 	@echo "==> Creating GitHub release..."
 	gh release create "v$(V)" --repo $(REPO) \
 		--title "tmux-flow v$(V)" \
 		--generate-notes
-	@echo "==> Updating Homebrew formula..."
-	$(MAKE) deploy V=$(V)
 	@echo "==> Done. Run 'make brew-install' to upgrade locally."
 
 # ── Deploy: update formula URL + sha256, push tap ────────────────────
