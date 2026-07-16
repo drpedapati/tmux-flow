@@ -28,6 +28,10 @@ release:
 		echo "Usage: make release V=<version>  (e.g. make release V=1.2)"; \
 		exit 1; \
 	fi
+	@if [ "$$(git branch --show-current)" != "main" ]; then \
+		echo "Refusing release: checkout must be on main."; \
+		exit 1; \
+	fi
 	@echo "==> Committing and pushing..."
 	git add -A && git status --short
 	@if git diff --cached --quiet; then \
@@ -55,15 +59,17 @@ deploy:
 	fi
 	cd $(TAP) && git pull --ff-only
 	@echo "==> Downloading tarball for sha256..."
-	$(eval URL := https://github.com/$(REPO)/archive/refs/tags/v$(V).tar.gz)
-	$(eval SHA := $(shell curl -sL "$(URL)" | shasum -a 256 | cut -d' ' -f1))
-	@echo "    URL: $(URL)"
-	@echo "    SHA: $(SHA)"
-	sed -i '' 's|url "https://github.com/$(REPO)/archive/refs/tags/.*"|url "$(URL)"|' $(FORMULA)
-	# Only rewrite the FIRST sha256 (the top-level formula one),
-	# leaving the completion resource's sha256 further down untouched.
-	awk -v sha="$(SHA)" 'BEGIN{done=0} /^  sha256 / && !done {sub(/"[a-f0-9]+"/, "\""sha"\""); done=1} {print}' $(FORMULA) > $(FORMULA).tmp && mv $(FORMULA).tmp $(FORMULA)
-	sed -i '' 's|version ".*"|version "$(V)"|' $(FORMULA)
+	@set -e; \
+		url="https://github.com/$(REPO)/archive/refs/tags/v$(V).tar.gz"; \
+		tarball=$$(mktemp); trap 'rm -f "$$tarball"' EXIT; \
+		curl -fsSL "$$url" -o "$$tarball"; \
+		sha=$$(shasum -a 256 "$$tarball" | cut -d' ' -f1); \
+		test $${#sha} -eq 64; \
+		echo "    URL: $$url"; echo "    SHA: $$sha"; \
+		sed -i '' 's|url "https://github.com/$(REPO)/archive/refs/tags/.*"|url "'"$$url"'"|' $(FORMULA); \
+		awk -v sha="$$sha" 'BEGIN{done=0} /^  sha256 / && !done {sub(/"[a-f0-9]+"/, "\""sha"\""); done=1} {print}' $(FORMULA) > $(FORMULA).tmp; \
+		mv $(FORMULA).tmp $(FORMULA); \
+		sed -i '' 's|version ".*"|version "$(V)"|' $(FORMULA)
 	cd $(TAP) && git add Formula/tmux-flow.rb && \
 		git commit -m "tmux-flow v$(V)" && \
 		git push origin main

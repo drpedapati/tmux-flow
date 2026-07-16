@@ -12,8 +12,10 @@
 # directly into status-style / window-status-format / pane-border-style
 # etc. No #{@thm_*} references in style strings → fully cacheable.
 
-# Mutex: bail if another instance is already switching.
-LOCK="/tmp/tmux-flow-switch-theme-$(id -u).lock"
+# Mutex: suppress re-entry for this server without blocking other tmux sockets.
+# TMUX begins with the server socket path; cksum makes it filesystem-safe.
+SERVER_KEY=$(printf '%s' "${TMUX%%,*}" | cksum | awk '{print $1}')
+LOCK="/tmp/tmux-flow-switch-theme-$(id -u)-${SERVER_KEY}.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
     exit 0
 fi
