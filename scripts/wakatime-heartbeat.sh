@@ -1,13 +1,52 @@
 #!/bin/sh
-# Send a Wakapi heartbeat on pane focus.
+# Send Wakapi heartbeats on pane focus and while clients remain attached.
 # project  = git repo root name (or dir basename if not in a repo)
 # branch   = current git branch
 # editor   = pane_current_command (claude, codex, lazygit, zsh, ...)
 # category = same as editor
 # Deduplicates on path+command pair — 120s cooldown on same pair.
 
-DIR="$1"
-CMD="$2"
+# Capability marker used by the client-attached hook to avoid invoking an old
+# retained Homebrew helper with the new --loop calling convention.
+TMUX_FLOW_HEARTBEAT_LOOP=1
+
+if [ "$1" = "--loop" ]; then
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/tmux-flow"
+    SERVER_KEY=$(printf '%s' "${TMUX%%,*}" | cksum | awk '{print $1}')
+    LOOP_DIR="$STATE_DIR/heartbeat-loop-${SERVER_KEY}"
+    LOOP_PID_FILE="$LOOP_DIR/pid"
+    umask 077
+    mkdir -p "$STATE_DIR" 2>/dev/null || exit 0
+
+    if ! mkdir "$LOOP_DIR" 2>/dev/null; then
+        LOOP_PID=$(cat "$LOOP_PID_FILE" 2>/dev/null)
+        case "$LOOP_PID" in
+            ''|*[!0-9]*) ;;
+            *) kill -0 "$LOOP_PID" 2>/dev/null && exit 0 ;;
+        esac
+        rm -rf "$LOOP_DIR" 2>/dev/null
+        mkdir "$LOOP_DIR" 2>/dev/null || exit 0
+    fi
+    printf '%s\n' "$$" > "$LOOP_PID_FILE"
+    trap 'rm -rf "$LOOP_DIR" 2>/dev/null' EXIT INT TERM
+
+    while PANE_IDS=$(tmux list-clients -F '#{pane_id}' 2>/dev/null) &&
+        [ -n "$PANE_IDS" ]; do
+        printf '%s\n' "$PANE_IDS" | sort -u | while IFS= read -r PANE_ID; do
+            [ -n "$PANE_ID" ] && "$0" "$PANE_ID"
+        done
+        sleep 60
+    done
+    exit 0
+fi
+
+PANE_ID="$1"
+[ -z "$PANE_ID" ] && exit 0
+
+# Never interpolate pane-controlled values into a tmux run-shell command.
+# The hook passes only a pane ID; query the values here as ordinary argv data.
+DIR=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_path}' 2>/dev/null)
+CMD=$(tmux display-message -p -t "$PANE_ID" '#{pane_current_command}' 2>/dev/null)
 [ -z "$DIR" ] && exit 0
 
 # Claude Code's binary is named by version (e.g. "2.1.81") because the
@@ -108,12 +147,17 @@ fi
 PAYLOAD="$PAYLOAD}"
 
 HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
+  --connect-timeout 5 \
+  --max-time 15 \
   -X POST \
   -H "Content-Type: application/json" \
   -H "User-Agent: wakatime/15.0.0 (darwin-arm64) ${CMD_HEADER}/1.0 tmux-flow-wakatime/1.0" \
   -H "X-Machine-Name: $MACHINE_HEADER" \
   -d "$PAYLOAD" \
-  -- "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}")
+  --config - <<EOF
+url = "${API_URL}/compat/wakatime/v1/users/current/heartbeats?api_key=${API_KEY}"
+EOF
+)
 CURL_STATUS=$?
 [ "$CURL_STATUS" -eq 0 ] || exit 0
 

@@ -451,7 +451,7 @@ key_bindings_init(void)
 		    "   \\033[33m⌃\\033[1;32mF3\\033[0m  Swap pane ←    \\033[33m⇧\\033[1;32mF3\\033[0m  Prev pane\\n"
 		    "   \\033[33m⌃\\033[1;32mF4\\033[0m  Swap pane →    \\033[33m⇧\\033[1;32mF4\\033[0m  Next pane\\n"
 		    "   \\033[33m⌃\\033[1;32mF6\\033[0m  Kill pane      \\033[33m⌃\\033[1;32mF8\\033[0m  Rename sess    \\033[33m⇧\\033[1;32mF8\\033[0m  Cycle layout\\n"
-		    "   \\033[33m⌃⇧\\033[1;32mF3\\033[0m Move win ←    \\033[33m⌃⇧\\033[1;32mF4\\033[0m Move win →\\n"
+		    "   \\033[33m⌥\\033[1;32mi\\033[0m  Move win ←       \\033[33m⌥\\033[1;32mo\\033[0m  Move win →\\n"
 		    "   \\033[33m⇧\\033[1;32mF11\\033[0m Zoom pane      \\033[33m⌥\\033[1;32mF11\\033[0m Break pane\\n"
 		    "\\n"
 		    "  \\033[2m───\\033[0m \\033[1mPHONE\\033[0m \\033[2m── standalone, no combos needed ──────────────────\\033[0m\\n"
@@ -540,8 +540,8 @@ key_bindings_init(void)
 		"run-shell '[ -f ~/.tmux/plugins/catppuccin/catppuccin.tmux ] && ~/.tmux/plugins/catppuccin/catppuccin.tmux || true'",
 		"set -g status-right ''",
 		"set -g status-right-length 0",
-		"set-hook -g client-dark-theme  \"run-shell '~/.tmux/switch-theme.sh mocha'\"",
-		"set-hook -g client-light-theme \"run-shell '~/.tmux/switch-theme.sh latte'\"",
+		"set-hook -g client-dark-theme  \"run-shell 'helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/switch-theme.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/switch-theme.sh; \\\"\\$helper\\\" mocha'\"",
+		"set-hook -g client-light-theme \"run-shell 'helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/switch-theme.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/switch-theme.sh; \\\"\\$helper\\\" latte'\"",
 
 		/* tmux-resurrect: save/restore sessions across restarts.
 		 * tmux-continuum: auto-save every 15 minutes.
@@ -554,12 +554,14 @@ key_bindings_init(void)
 		"run-shell '[ -f ~/.tmux/plugins/tmux-continuum/continuum.tmux ] && ~/.tmux/plugins/tmux-continuum/continuum.tmux || true'",
 
 		/* Wakapi time tracking — fires on pane focus.
-		 * Passes path (project) and running command (claude/codex/lazygit/zsh)
-		 * so Wakapi shows tool breakdown per project in the language field.
+		 * Passes only a pane ID through the shell; the helper queries path and
+		 * command directly so pane-controlled text cannot become shell syntax.
+		 * Wakapi then shows tool breakdown per project in the language field.
 		 * Deduplicates on path+command: switching claude->zsh in same project
 		 * fires immediately; same pair has 120s cooldown. */
 		"set -g focus-events on",
-		"set-hook -g pane-focus-in 'run-shell -b \"~/.tmux/wakatime-heartbeat.sh #{q:pane_current_path} #{q:pane_current_command}\"'",
+		"set-hook -g pane-focus-in 'run-shell -b \"helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/wakatime-heartbeat.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/wakatime-heartbeat.sh; \\\"\\$helper\\\" #{pane_id}\"'",
+		"set-hook -g client-attached 'run-shell -b \"helper=$(brew --prefix tmux-flow 2>/dev/null)/share/tmux-flow/wakatime-heartbeat.sh; [ -x \\\"\\$helper\\\" ] || helper=~/.tmux/wakatime-heartbeat.sh; grep -q TMUX_FLOW_HEARTBEAT_LOOP=1 \\\"\\$helper\\\" 2>/dev/null && \\\"\\$helper\\\" --loop\"'",
 
 		/* Copy mode (emacs) keys. */
 		"bind -Tcopy-mode C-Space { send -X begin-selection }",
