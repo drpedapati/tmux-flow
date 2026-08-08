@@ -9,6 +9,8 @@ tmux-*.log
 *~
 .deps/
 .dirstamp
+.serena/
+AGENTS.md
 Makefile
 Makefile.in
 aclocal.m4
@@ -21,6 +23,7 @@ configure
 core
 etc/
 fuzz/*-fuzzer
+regress/logs/
 tags
 tmux
 tmux.1.*

@@ -1,4 +1,4 @@
-/* $OpenBSD$ */
+/* $OpenBSD: cmd-find.c,v 1.87 2026/07/17 12:42:51 nicm Exp $ */
 
 /*
  * Copyright (c) 2015 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -147,6 +147,18 @@ cmd_find_session_better(struct session *s, struct session *than, int flags)
 	return (timercmp(&s->activity_time, &than->activity_time, >));
 }
 
+/* Can this session be usefully targeted? */
+static int
+cmd_find_session_valid(struct session *s)
+{
+	if (!session_alive(s) ||
+	    s->curw == NULL ||
+	    s->curw->window == NULL ||
+	    s->curw->window->active == NULL)
+		return (0);
+	return (1);
+}
+
 /* Find best session from a list, or all if list is NULL. */
 static struct session *
 cmd_find_best_session(struct session **slist, u_int ssize, int flags)
@@ -159,11 +171,15 @@ cmd_find_best_session(struct session **slist, u_int ssize, int flags)
 	s = NULL;
 	if (slist != NULL) {
 		for (i = 0; i < ssize; i++) {
+			if (!cmd_find_session_valid(slist[i]))
+				continue;
 			if (cmd_find_session_better(slist[i], s, flags))
 				s = slist[i];
 		}
 	} else {
 		RB_FOREACH(s_loop, sessions, &sessions) {
+			if (!cmd_find_session_valid(s_loop))
+				continue;
 			if (cmd_find_session_better(s_loop, s, flags))
 				s = s_loop;
 		}
@@ -868,7 +884,7 @@ cmd_find_from_client(struct cmd_find_state *fs, struct client *c, int flags)
 	if (c->session != NULL) {
 		cmd_find_clear_state(fs, flags);
 
-		fs->wp = server_client_get_pane(c);
+		fs->wp = c->session->curw->window->active;
 		if (fs->wp == NULL) {
 			cmd_find_from_session(fs, c->session, flags);
 			return (0);
@@ -995,7 +1011,7 @@ cmd_find_target(struct cmd_find_state *fs, struct cmdq_item *item,
 	    strcmp(target, "{active}") == 0 ||
 	    strcmp(target, "{current}") == 0) {
 		c = cmdq_get_client(item);
-		if (c == NULL) {
+		if (c == NULL || c->session == NULL) {
 			cmdq_error(item, "no current client");
 			goto error;
 		}

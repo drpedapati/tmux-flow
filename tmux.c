@@ -1,4 +1,4 @@
-/* $OpenBSD$ */
+/* $OpenBSD: tmux.c,v 1.222 2026/07/19 19:09:30 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -48,6 +48,24 @@ static char		*make_label(const char *, char **);
 
 static int		 areshell(const char *);
 static const char	*getshell(void);
+
+#ifdef ASAN
+__attribute__((used)) const char *__asan_default_options(void);
+__attribute__((used)) const char *
+__asan_default_options(void)
+{
+	return (
+	    "abort_on_error=1:"
+	    "halt_on_error=1:"
+	    "detect_leaks=0:"
+	    "detect_stack_use_after_return=1:"
+	    "strict_string_checks=1:"
+	    "check_initialization_order=1:"
+	    "log_path=/tmp/tmux-asan:"
+	    "log_exe_name=1"
+	);
+}
+#endif
 
 static __dead void
 usage(int status)
@@ -357,7 +375,7 @@ find_home(void)
 	if (home == NULL || *home == '\0') {
 		pw = getpwuid(getuid());
 		if (pw != NULL)
-			home = pw->pw_dir;
+			home = xstrdup(pw->pw_dir);
 		else
 			home = NULL;
 	}
