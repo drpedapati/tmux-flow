@@ -619,11 +619,27 @@ key_bindings_init(void)
 
 		/* tmux-resurrect: save/restore sessions across restarts.
 		 * tmux-continuum: auto-save every 15 minutes.
-		 * Install once: git clone https://github.com/tmux-plugins/tmux-resurrect ~/.tmux/plugins/tmux-resurrect
-		 *               git clone https://github.com/tmux-plugins/tmux-continuum ~/.tmux/plugins/tmux-continuum
-		 * Save:    prefix + Ctrl-s   Restore: prefix + Ctrl-r */
+		 * Save:    prefix + Ctrl-s   Restore: prefix + Ctrl-r
+		 *
+		 * The supported way to enable these is to source tmux-flow.conf, which
+		 * loads them from the Homebrew prefix:
+		 *
+		 *   source $(brew --prefix tmux-flow)/share/tmux-flow/tmux-flow.conf
+		 *
+		 * The ~/.tmux/plugins run-shell lines below are a compatibility
+		 * fallback for installs that cloned the plugins there by hand before
+		 * v1.9. They are guarded, so they are a no-op when the directory is
+		 * absent. Do not add new plugins here.
+		 *
+		 * @continuum-restore is deliberately NOT set. Turning it on made
+		 * continuum restore a saved session about a second after every server
+		 * start, with no user action, which races the
+		 * default-client-command "new-session -A -s main" and can produce a
+		 * "duplicate session: main" error. Set it yourself if you want it:
+		 *
+		 *   set -g @continuum-restore 'on'
+		 */
 		"set -g @continuum-save-interval '15'",
-		"set -g @continuum-restore 'on'",
 		"run-shell '[ -f ~/.tmux/plugins/tmux-resurrect/resurrect.tmux ] && ~/.tmux/plugins/tmux-resurrect/resurrect.tmux || true'",
 		"run-shell '[ -f ~/.tmux/plugins/tmux-continuum/continuum.tmux ] && ~/.tmux/plugins/tmux-continuum/continuum.tmux || true'",
 

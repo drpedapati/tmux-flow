@@ -1,33 +1,48 @@
 ---
-name: Use this issue template
-about: Please read https://github.com/tmux/tmux/blob/master/.github/CONTRIBUTING.md
+name: tmux-flow issue
+about: Report a problem with tmux-flow, this fork of tmux
 title: ''
 labels: ''
 assignees: ''
 
 ---
 
-### Issue description
+### Before you file
 
-Please read https://github.com/tmux/tmux/blob/master/.github/CONTRIBUTING.md
-before opening an issue.
+tmux-flow is a fork of [tmux](https://github.com/tmux/tmux). If the problem also
+happens with stock tmux, please report it
+[upstream](https://github.com/tmux/tmux/issues) instead — that is where it will
+get fixed.
 
-If you have upgraded, make sure your issue is not covered in the CHANGES file
-for your version: https://raw.githubusercontent.com/tmux/tmux/master/CHANGES
+A quick way to tell them apart: tmux-flow's own behaviour lives in its key
+bindings, defaults and Homebrew packaging. Rendering, copy mode, and terminal
+handling are almost always upstream.
 
-Describe the problem and the steps to reproduce. Add a minimal tmux config if
-necessary. Screenshots can be helpful, but no more than one or two.
+### What happened
 
-Do not report bugs (crashes, incorrect behaviour) without reproducing on a tmux
-built from the latest code in Git.
+<!-- What you did, what you expected, what happened instead. -->
 
-### Required information
+### Version
 
-Please provide the following information. These are **required**. Note that bug reports without logs may be ignored or closed without comment.
+<!-- Output of: tmux -V  and  brew list --versions tmux-flow -->
 
-* tmux version (`tmux -V`).
-* Platform (`uname -sp`).
-* Terminal in use (xterm, rxvt, etc).
-* $TERM *inside* tmux (`echo $TERM`).
-* $TERM *outside* tmux (`echo $TERM`).
-* Logs from tmux (`tmux kill-server; tmux -vv new`).
+### Platform
+
+<!-- macOS or Linux, version, and arm64 or x86_64. -->
+
+### Config
+
+<!--
+Does it still happen with no config at all?
+
+    tmux -L test -f /dev/null new
+
+If you enabled the optional plugins by sourcing tmux-flow.conf, say so.
+-->
+
+### Logs
+
+<!--
+If useful, run `tmux -vv` and attach the tmux-server-*.log and
+tmux-client-*.log files it writes to the current directory.
+-->

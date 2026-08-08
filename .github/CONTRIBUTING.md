@@ -1,3 +1,25 @@
+## Contributing to tmux-flow
+
+tmux-flow is a fork of [tmux](https://github.com/tmux/tmux) that adds
+opinionated defaults and Homebrew packaging. Where to send things:
+
+- **A problem with tmux-flow's bindings, defaults, or Homebrew formula** —
+  open an issue or pull request [here](https://github.com/drpedapati/tmux-flow/issues).
+- **A problem that also happens with stock tmux** — report it
+  [upstream](https://github.com/tmux/tmux/issues). It will get fixed there, and
+  this fork picks it up on the next sync. Check by running
+  `tmux -L test -f /dev/null new`, which starts tmux with no configuration.
+- **The Homebrew formula itself** lives in a separate repository:
+  [drpedapati/homebrew-tools](https://github.com/drpedapati/homebrew-tools).
+
+Please do not send tmux-flow issues to the upstream tmux mailing list; the tmux
+maintainers do not maintain this fork.
+
+The rest of this document is upstream tmux's guidance on writing a good bug
+report. It is worth reading, and applies here too.
+
+---
+
 ## What should I do before opening an issue?
 
 Before opening an issue, please ensure that:

@@ -1,1 +1,8 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
+contact_links:
+  - name: Upstream tmux bug
+    url: https://github.com/tmux/tmux/issues
+    about: >-
+      If the problem also happens with stock tmux (not tmux-flow), report it
+      upstream instead. Check with `brew install tmux` or by running tmux with
+      `-f /dev/null`.

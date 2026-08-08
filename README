@@ -106,6 +106,19 @@ Setup:
 Changelog
 -----------------------------------
 
+v2.1 — 2026-08-08
+  Stopped forcing @continuum-restore on. It made continuum restore a
+  saved session about a second after every server start, with no user
+  action, racing `new-session -A -s main` and sometimes failing with
+  "duplicate session: main". Set it yourself if you want that behaviour:
+
+    set -g @continuum-restore 'on'
+
+  Bug reports and pull requests now route to this fork rather than to
+  the upstream tmux mailing list.
+
+  Homebrew bottles: installing no longer compiles tmux from source.
+
 v2.0 — 2026-08-08
   Merged upstream's tmux 3.8 development line (731 commits). Brings
   floating panes, modal panes, upstream's own light/dark theme system,
