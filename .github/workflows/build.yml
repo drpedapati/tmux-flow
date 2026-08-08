@@ -93,10 +93,11 @@ jobs:
             "$($T show -sv default-client-command)"
 
           # The fork retires most prefix bindings in favour of F-keys; this is
-          # the exact set that should remain.
+          # the exact set that should remain. LC_ALL=C so the ordering is the
+          # same on macOS and Linux, whose default collations differ.
           expected="& * 0 1 2 3 4 5 6 7 8 9 : < > ? @ BTab C C-b M T Tab ] f g i m q r s w x"
           check "prefix table" "$expected" \
-            "$($T list-keys -T prefix | awk '{print $4}' | sort | tr '\n' ' ' | sed 's/ $//')"
+            "$($T list-keys -T prefix | awk '{print $4}' | LC_ALL=C sort | tr '\n' ' ' | sed 's/ $//')"
 
           check "root F-key bindings" "38" \
             "$($T list-keys -T root | grep -vcE 'Mouse|Wheel|Click')"
