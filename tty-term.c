@@ -1,4 +1,4 @@
-/* $OpenBSD$ */
+/* $OpenBSD: tty-term.c,v 1.107 2026/08/05 08:54:56 nicm Exp $ */
 
 /*
  * Copyright (c) 2008 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -31,6 +31,7 @@
 #include "tmux.h"
 
 static char	*tty_term_strip(const char *);
+static void	 tty_term_validate(struct tty_term *);
 
 struct tty_terms tty_terms = LIST_HEAD_INITIALIZER(tty_terms);
 
@@ -519,6 +520,26 @@ tty_term_apply_overrides(struct tty_term *term)
 		acs = "a#j+k+l+m+n+o-p-q-r-s-t+u+v+w+x|y<z>~.";
 	for (; acs[0] != '\0' && acs[1] != '\0'; acs += 2)
 		term->acs[(u_char) acs[0]][0] = acs[1];
+
+	tty_term_validate(term);
+}
+
+static void
+tty_term_validate(struct tty_term *term)
+{
+	struct tty_code	*code = &term->codes[TTYC_MS];
+
+	if (code->type != TTYCODE_STRING)
+		return;
+	if (*tty_term_string_ss(term, TTYC_MS, "c", "?") != '\0') {
+		term->flags &= ~TERM_INVALIDMS;
+		return;
+	}
+
+	log_debug("removing invalid Ms capability");
+	term->flags |= TERM_INVALIDMS;
+	free(code->value.string);
+	code->type = TTYCODE_NONE;
 }
 
 struct tty_term *
@@ -774,6 +795,18 @@ int
 tty_term_has(struct tty_term *term, enum tty_code_code code)
 {
 	return (term->codes[code].type != TTYCODE_NONE);
+}
+
+int
+tty_term_has_name(struct tty_term *term, const char *name)
+{
+	u_int	i;
+
+	for (i = 0; i < tty_term_ncodes(); i++) {
+		if (strcmp(tty_term_codes[i].name, name) == 0)
+			return (tty_term_has(term, i));
+	}
+	return (0);
 }
 
 const char *
