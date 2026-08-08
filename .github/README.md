@@ -1,5 +1,7 @@
 # tmux-flow (drpedapati fork)
 
+[![Build](https://github.com/drpedapati/tmux-flow/actions/workflows/build.yml/badge.svg)](https://github.com/drpedapati/tmux-flow/actions/workflows/build.yml)
+
 > **A custom fork of [tmux](https://github.com/tmux/tmux)** with opinionated
 > defaults for a modern terminal workflow: F-key bindings that need no prefix,
 > mouse on by default, directory-named tabs, and a session chooser on F12.
