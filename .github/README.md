@@ -1,17 +1,28 @@
-# tmux-custom (drpedapati fork)
+# tmux-flow (drpedapati fork)
 
-> **This is a custom fork of [tmux](https://github.com/tmux/tmux).** It tracks
-> upstream and adds custom patches. Install via Homebrew:
+> **A custom fork of [tmux](https://github.com/tmux/tmux)** with opinionated
+> defaults for a modern terminal workflow: F-key bindings that need no prefix,
+> mouse on by default, directory-named tabs, and a session chooser on F12.
 >
 > ~~~bash
-> brew install drpedapati/tools/tmux-custom
+> brew install drpedapati/tools/tmux-flow
+> tmux          # F1 shows every binding
 > ~~~
 >
-> Or install the latest from this repo:
+> Or track this repo's main branch:
 >
 > ~~~bash
-> brew install --HEAD drpedapati/tools/tmux-custom
+> brew install --HEAD drpedapati/tools/tmux-flow
 > ~~~
+>
+> The Catppuccin theme and session save/restore are opt-in — add one line
+> to `~/.tmux.conf`:
+>
+> ~~~bash
+> source $(brew --prefix tmux-flow)/share/tmux-flow/tmux-flow.conf
+> ~~~
+>
+> See the [README](../README) for the full binding list, setup and changelog.
 >
 > Upstream: https://github.com/tmux/tmux
 
@@ -65,11 +76,14 @@ To get and build the latest from this fork - note that this requires
 `autoconf`, `automake` and `pkg-config`:
 
 ~~~bash
-git clone https://github.com/drpedapati/tmux.git
-cd tmux
+git clone https://github.com/drpedapati/tmux-flow.git
+cd tmux-flow
 sh autogen.sh
 ./configure && make
 ~~~
+
+On macOS, tmux 3.8 requires an explicit jemalloc choice; add
+`--enable-jemalloc` (recommended) or `--disable-jemalloc` to `./configure`.
 
 ## Contributing
 

@@ -5,12 +5,16 @@ A custom fork of tmux that tracks upstream (https://github.com/tmux/tmux)
 and layers in opinionated defaults for a modern terminal workflow:
 
   - F-key bindings with no prefix required (phone-friendly)
-  - Catppuccin theme with automatic macOS dark/light switching
+  - Mouse support on by default
   - Tabs show current directory name instead of hostname
   - `tmux` with no args attaches to existing session or creates one
-  - Built-in WakaTime/Wakapi time tracking (fires on pane focus)
   - F12 session/directory chooser via sesh + fzf
   - F1 shows full key binding reference
+  - Built-in WakaTime/Wakapi time tracking (fires on pane focus)
+
+Opt-in, by sourcing tmux-flow.conf (see Install):
+
+  - Catppuccin theme with automatic macOS dark/light switching
   - Session save/restore via tmux-resurrect (survives restarts)
   - Auto-save every 15 min via tmux-continuum
 
@@ -19,12 +23,23 @@ Install
 
   $ brew install drpedapati/tools/tmux-flow
 
-This installs tmux-flow plus all required tools:
-wakatime-cli, sesh, fzf, zoxide.
+This installs tmux-flow plus the tools the F12 chooser needs:
+sesh, fzf and zoxide.
 
 Then start tmux:
 
   $ tmux
+
+The key bindings, mouse support and status bar below are compiled into
+the binary and need no configuration at all.
+
+The Catppuccin theme and session save/restore ship with tmux-flow but
+are opt-in, because turning them on means loading plugins into your
+config. To enable them, add one line to ~/.tmux.conf:
+
+  source $(brew --prefix tmux-flow)/share/tmux-flow/tmux-flow.conf
+
+`brew info tmux-flow` prints the exact path for your install.
 
 Key Bindings (no prefix required)
 -----------------------------------
@@ -56,13 +71,15 @@ Key Bindings (no prefix required)
 Session Backup (resurrect + continuum)
 -----------------------------------
 
-Sessions are saved automatically every 15 minutes and restored on startup.
+Once you have sourced tmux-flow.conf (see Install), sessions are saved
+automatically every 15 minutes.
 
   prefix + Ctrl-s   Save session now
   prefix + Ctrl-r   Restore last saved session
 
-Requires the one-time plugin clone above. Saves to ~/.local/share/tmux/resurrect/
-by default. Survives kill-server, reboots, and brew upgrades.
+The plugins ship inside the Homebrew prefix, so there is nothing to
+clone. Saves go to ~/.local/share/tmux/resurrect/ by default and survive
+kill-server, reboots and brew upgrades.
 
 Time Tracking (Wakapi)
 -----------------------------------
@@ -85,6 +102,72 @@ Setup:
   2. Start tmux — tracking begins automatically.
 
   No ~/.wakatime.cfg or no api_key = silent no-op, zero overhead.
+
+Changelog
+-----------------------------------
+
+v2.0 — 2026-08-08
+  Merged upstream's tmux 3.8 development line (731 commits). Brings
+  floating panes, modal panes, upstream's own light/dark theme system,
+  the C-b g move table and the Tab/BTab pane switcher.
+
+  New prefix bindings kept from upstream, none of which have an F-key
+  equivalent here:
+    @      toggle pane between floating and tiled
+    T      change the pane title
+    Tab    switch to a window
+    BTab   switch to a session
+
+  Bindings this fork had already retired stay retired, including
+  upstream's new floating-aware M-arrow and C-arrow resize variants.
+
+  Fixed a macOS build failure: tmux 3.8 makes the jemalloc choice
+  mandatory on Darwin, so the Homebrew formula now passes
+  --enable-jemalloc and depends on jemalloc. Without it `brew install`
+  aborted at configure on macOS.
+
+  `tmux -V` now reports next-3.8, an upstream development snapshot
+  rather than a tagged release. Note that 19 default styles (copy-mode
+  selection and search highlighting among them) now render from
+  upstream's built-in theme palette rather than Catppuccin, because
+  switch-theme.sh overrides 5 of the 24 theme-aware options.
+
+v1.9 — 2026-08-08
+  Reworked the Homebrew formula. The old post_install cloned plugins
+  into ~/.tmux/plugins and copied helper scripts there; it never worked,
+  because Homebrew runs post_install with HOME pointed at a sandboxed
+  temporary directory. The Catppuccin theme and session save/restore had
+  therefore never worked for any install.
+
+  Plugins now ship as pinned, checksummed resources inside the Homebrew
+  prefix, and nothing is written to your home directory. Enable them by
+  sourcing tmux-flow.conf (see Install).
+
+  Dropped the wakatime-cli dependency; the heartbeat has used curl since
+  v1.4 because wakatime-cli rejects Wakapi keys.
+
+v1.8 — 2026-08-08
+  Merged upstream tmux 3.7b (326 commits), moving off the next-3.7
+  development line onto a released tag. Added the `*` new-pane binding.
+  Release tooling now works on Linux as well as macOS.
+
+v1.7 — 2026-07-16
+  Release tooling hardening; releases publish reviewed commits only.
+
+v1.6 — 2026-04-17
+  Fixed a 100% CPU regression caused by `#{}` in style strings.
+
+v1.5, v1.4 — 2026-04-17
+  Catppuccin Latte status bar fixes; Option+i/o to move windows;
+  Wakapi heartbeat field mapping.
+
+v1.3 — 2026-03-27
+  F12 chooser opens directories in the main session.
+
+v1.0 - v1.2 — 2026-03-23
+  First tagged releases as tmux-flow: F-key bindings, mouse on by
+  default, Catppuccin theme, sesh/fzf session chooser, resurrect and
+  continuum session backup, Wakapi time tracking.
 
 --------
 
