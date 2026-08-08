@@ -76,13 +76,15 @@ deploy:
 		url="https://github.com/$(REPO)/archive/refs/tags/v$(V).tar.gz"; \
 		tarball=$$(mktemp); trap 'rm -f "$$tarball"' EXIT; \
 		curl -fsSL "$$url" -o "$$tarball"; \
-		sha=$$(shasum -a 256 "$$tarball" | cut -d' ' -f1); \
+		sha=$$({ shasum -a 256 "$$tarball" 2>/dev/null || sha256sum "$$tarball"; } | cut -d' ' -f1); \
 		test $${#sha} -eq 64; \
 		echo "    URL: $$url"; echo "    SHA: $$sha"; \
-		sed -i '' 's|url "https://github.com/$(REPO)/archive/refs/tags/.*"|url "'"$$url"'"|' $(FORMULA); \
+		sed 's|url "https://github.com/$(REPO)/archive/refs/tags/.*"|url "'"$$url"'"|' $(FORMULA) > $(FORMULA).tmp; \
+		mv $(FORMULA).tmp $(FORMULA); \
 		awk -v sha="$$sha" 'BEGIN{done=0} /^  sha256 / && !done {sub(/"[a-f0-9]+"/, "\""sha"\""); done=1} {print}' $(FORMULA) > $(FORMULA).tmp; \
 		mv $(FORMULA).tmp $(FORMULA); \
-		sed -i '' 's|version ".*"|version "$(V)"|' $(FORMULA)
+		sed 's|version ".*"|version "$(V)"|' $(FORMULA) > $(FORMULA).tmp; \
+		mv $(FORMULA).tmp $(FORMULA)
 	cd $(TAP) && git add Formula/tmux-flow.rb && \
 		git commit -m "tmux-flow v$(V)" && \
 		git push origin main
@@ -95,6 +97,6 @@ brew-install:
 # ── Show current version info ────────────────────────────────────────
 version:
 	@echo "Binary:  $$(tmux -V)"
-	@echo "Brew:    $$(brew info --json drpedapati/tools/tmux-flow | python3 -c 'import json,sys;print(json.load(sys.stdin)[0]["versions"]["stable"])')"
+	@echo "Brew:    $$(brew info --json drpedapati/tools/tmux-flow 2>/dev/null | python3 -c 'import json,sys;print(json.load(sys.stdin)[0]["versions"]["stable"])' 2>/dev/null || echo 'tap not installed (run: brew tap drpedapati/tools)')"
 	@echo "Git tag: $$(git describe --tags --abbrev=0)"
 	@echo "HEAD:    $$(git log --oneline -1)"
