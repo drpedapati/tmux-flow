@@ -8,7 +8,7 @@ REPO  := drpedapati/tmux-flow
 TAP   := /tmp/homebrew-tools
 FORMULA := $(TAP)/Formula/tmux-flow.rb
 
-.PHONY: release deploy brew-install version
+.PHONY: release deploy bottles brew-install version
 
 # ── Default: fall through to autotools ───────────────────────────────
 .DEFAULT_GOAL := autotools-fallthrough
@@ -84,10 +84,25 @@ deploy:
 		awk -v sha="$$sha" 'BEGIN{done=0} /^  sha256 / && !done {sub(/"[a-f0-9]+"/, "\""sha"\""); done=1} {print}' $(FORMULA) > $(FORMULA).tmp; \
 		mv $(FORMULA).tmp $(FORMULA); \
 		sed 's|version ".*"|version "$(V)"|' $(FORMULA) > $(FORMULA).tmp; \
+		mv $(FORMULA).tmp $(FORMULA); \
+		awk '/^  bottle do$$/{s=1} s&&/^  end$$/{s=0;next} !s' $(FORMULA) > $(FORMULA).tmp; \
 		mv $(FORMULA).tmp $(FORMULA)
+	@echo "==> Dropped any stale bottle block (bottles are pinned per version)."
 	cd $(TAP) && git add Formula/tmux-flow.rb && \
 		git commit -m "tmux-flow v$(V)" && \
 		git push origin main
+	@echo
+	@echo "    Installs will build from source until you run:"
+	@echo "        make bottles V=$(V)"
+	@echo
+
+# ── Bottles: build on each platform, upload, register in the formula ─
+# Bottles are pinned to a release by root_url, so every new version needs
+# new ones. deploy drops the old block so a version bump can never leave
+# the formula pointing at bottles that do not exist.
+bottles:
+	@if [ -z "$(V)" ]; then echo "Usage: make bottles V=<version>"; exit 1; fi
+	TAP=$(TAP) bash scripts/publish-bottles.sh $(V)
 
 # ── Brew install/upgrade ─────────────────────────────────────────────
 brew-install:
