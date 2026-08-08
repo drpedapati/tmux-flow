@@ -1,0 +1,134 @@
+name: Build
+
+# Builds tmux-flow on both platforms it ships to and checks the fork's own
+# invariants still hold.
+#
+# This deliberately does NOT run the regress suite. Roughly 42 of those tests
+# fail here by design, because the fork's compiled-in `set -g` defaults
+# (pane-border-status, status-right, automatic-rename, allow-rename) differ
+# from the values upstream's tests expect. Running them would make CI
+# permanently red and therefore ignored. The checks below test what this fork
+# actually promises instead.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+          - name: macos-arm64
+            runner: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            autoconf automake libtool pkg-config bison \
+            libevent-dev libncurses-dev libutf8proc-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install autoconf automake libtool pkgconf libevent ncurses utf8proc jemalloc
+
+      - name: Configure
+        run: |
+          set -eux
+          sh autogen.sh
+          # tmux 3.8 makes the jemalloc choice mandatory on Darwin: configure
+          # aborts unless one of the flags is given. This is exactly the break
+          # that shipped in v2.0, so it is the main thing this job guards.
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            ./configure --enable-utf8proc --enable-jemalloc
+          else
+            ./configure --enable-utf8proc
+          fi
+
+      - name: Build
+        run: make -j3
+
+      - name: Check fork invariants
+        run: |
+          set -eu
+          T="./tmux -Lci-$$ -f /dev/null"
+          $T new -d
+          trap '$T kill-server 2>/dev/null || true' EXIT
+          sleep 1
+
+          fail=0
+          check() { # name expected actual
+            if [ "$2" = "$3" ]; then
+              echo "ok    $1: $3"
+            else
+              echo "FAIL  $1: expected '$2', got '$3'"
+              fail=1
+            fi
+          }
+
+          check "mouse default on" "on" \
+            "$($T show -gv mouse)"
+
+          check "default-client-command" "new-session -A -s main" \
+            "$($T show -sv default-client-command)"
+
+          # The fork retires most prefix bindings in favour of F-keys; this is
+          # the exact set that should remain.
+          expected="& * 0 1 2 3 4 5 6 7 8 9 : < > ? @ BTab C C-b M T Tab ] f g i m q r s w x"
+          check "prefix table" "$expected" \
+            "$($T list-keys -T prefix | awk '{print $4}' | sort | tr '\n' ' ' | sed 's/ $//')"
+
+          check "root F-key bindings" "38" \
+            "$($T list-keys -T root | grep -vcE 'Mouse|Wheel|Click')"
+
+          # Auto-restore must stay opt-in: forcing it races new-session -A.
+          if $T show -gv @continuum-restore >/dev/null 2>&1; then
+            echo "FAIL  @continuum-restore is set; it must be opt-in"
+            fail=1
+          else
+            echo "ok    @continuum-restore unset (opt-in)"
+          fi
+
+          exit $fail
+
+      - name: Check the shipped plugin config is loadable
+        run: |
+          set -eu
+          # tmux-flow.conf is installed by the Homebrew formula with
+          # @@PKGSHARE@@ rewritten. Verify it still parses with the plugins
+          # staged, so a bad edit cannot reach users.
+          share=$(mktemp -d)
+          mkdir -p "$share/plugins"
+          for p in catppuccin tmux-resurrect tmux-continuum; do
+            mkdir -p "$share/plugins/$p"
+          done
+          sed "s|@@PKGSHARE@@|$share|g" scripts/tmux-flow.conf > "$share/tmux-flow.conf"
+          T="./tmux -Lcfg-$$ -f $share/tmux-flow.conf"
+          $T new -d
+          trap '$T kill-server 2>/dev/null || true' EXIT
+          sleep 1
+          if $T show-messages | grep -iE 'unknown|invalid|bad option|error'; then
+            echo "FAIL  tmux-flow.conf produced config errors"
+            exit 1
+          fi
+          echo "ok    tmux-flow.conf loads cleanly (plugins absent = no-op)"

@@ -18,6 +18,19 @@ Opt-in, by sourcing tmux-flow.conf (see Install):
   - Session save/restore via tmux-resurrect (survives restarts)
   - Auto-save every 15 min via tmux-continuum
 
+Which tmux is under this?
+-------------------------
+
+tmux-flow currently tracks upstream's 3.8 *development* line, so `tmux -V`
+reports `next-3.8` rather than a released tmux version. That is deliberate:
+it is where floating panes, modal panes and upstream's own theme system
+live. It also means you are running upstream code that has not been through
+a tmux release.
+
+If you would rather run only released tmux, this is not the fork for you
+yet. Every release here is built and checked on macOS and Linux before it
+ships, but that is not the same as an upstream release.
+
 Install
 -------
 
@@ -102,6 +115,33 @@ Setup:
   2. Start tmux — tracking begins automatically.
 
   No ~/.wakatime.cfg or no api_key = silent no-op, zero overhead.
+
+Known issues
+-----------------------------------
+
+Theme colours in copy mode
+  tmux 3.8 added its own light/dark theme system, and 19 default styles now
+  take their colours from it rather than from Catppuccin. switch-theme.sh
+  overrides 5 of the 24 theme-aware options. The visible effect is that
+  copy-mode selection and search highlighting do not match the Catppuccin
+  palette. Everything else does.
+
+Going back a version
+  Releases are pinned in the Homebrew tap, so rolling back means pointing
+  the formula at an older tag:
+
+    $ git -C "$(brew --repository)/Library/Taps/drpedapati/homebrew-tools" \
+        log --oneline Formula/tmux-flow.rb
+
+  Find the commit for the version you want, check it out, then reinstall
+  with `brew reinstall drpedapati/tools/tmux-flow`. Older versions have no
+  bottles, so that will build from source.
+
+Regression suite
+  `cd regress && make` fails roughly 42 tests. This is expected: the fork's
+  compiled-in defaults (pane-border-status, status-right, automatic-rename,
+  allow-rename) differ from the values upstream's tests assert. CI checks
+  this fork's own invariants instead.
 
 Changelog
 -----------------------------------
