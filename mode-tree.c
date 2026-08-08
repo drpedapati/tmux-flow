@@ -148,7 +148,6 @@ static const char* mode_tree_help_start[] = {
 	"\r\033[1m          T \033[0m\016x\017 \033[0mUntag all %1s\n",
 	"\r\033[1m        C-t \033[0m\016x\017 \033[0mTag all %1s\n",
 	"\r\033[1m        C-s \033[0m\016x\017 \033[0mSearch forward\n",
-	"\r\033[1m        C-r \033[0m\016x\017 \033[0mSearch backward\n",
 	"\r\033[1m          n \033[0m\016x\017 \033[0mRepeat search forward\n",
 	"\r\033[1m          N \033[0m\016x\017 \033[0mRepeat search backward\n",
 	"\r\033[1m          f \033[0m\016x\017 \033[0mFilter %1s\n",
@@ -301,6 +300,8 @@ mode_tree_clear_tagged(struct mode_tree_list *mtl)
 void
 mode_tree_up(struct mode_tree_data *mtd, int wrap)
 {
+	if (mtd->line_size == 0)
+		return;
 	if (mtd->current == 0) {
 		if (wrap) {
 			mtd->current = mtd->line_size - 1;
@@ -317,6 +318,8 @@ mode_tree_up(struct mode_tree_data *mtd, int wrap)
 int
 mode_tree_down(struct mode_tree_data *mtd, int wrap)
 {
+	if (mtd->line_size == 0)
+		return (0);
 	if (mtd->current == mtd->line_size - 1) {
 		if (wrap) {
 			mtd->current = 0;
@@ -363,6 +366,8 @@ mode_tree_swap(struct mode_tree_data *mtd, int direction)
 void *
 mode_tree_get_current(struct mode_tree_data *mtd)
 {
+	if (mtd->line_size == 0)
+		return (NULL);
 	return (mtd->line_list[mtd->current].item->itemdata);
 }
 
@@ -433,6 +438,8 @@ mode_tree_set_current(struct mode_tree_data *mtd, uint64_t tag)
 		return (1);
 	}
 	if (mtd->current >= mtd->line_size) {
+		if (mtd->line_size == 0)
+			return (0);
 		mtd->current = mtd->line_size - 1;
 		if (mtd->current > mtd->height - 1)
 			mtd->offset = mtd->current - mtd->height + 1;
@@ -1173,7 +1180,7 @@ mode_tree_display_help(__unused struct mode_tree_data *mtd, struct client *c)
 	}
 	for (line = mode_tree_help_start; *line != NULL; line++)
 		h++;
-	for (line = lines; *line != NULL; line++)
+	for (line = lines; line != NULL && *line != NULL; line++)
 		h++;
 	for (line = mode_tree_help_end; *line != NULL; line++)
 		h++;
@@ -1194,7 +1201,7 @@ mode_tree_display_help(__unused struct mode_tree_data *mtd, struct client *c)
 		popup_write(c, new_line, strlen(new_line));
 		free(new_line);
 	}
-	for (line = lines; *line != NULL; line++) {
+	for (line = lines; line != NULL && *line != NULL; line++) {
 		new_line = cmd_template_replace(*line, item, 1);
 		popup_write(c, new_line, strlen(new_line));
 		free(new_line);
@@ -1214,7 +1221,12 @@ mode_tree_key(struct mode_tree_data *mtd, struct client *c, key_code *key,
 	struct mode_tree_line	*line;
 	struct mode_tree_item	*current, *parent, *mti;
 	u_int			 i, x, y;
-	int			 choice;
+	int			 choice, preview;
+
+	if (mtd->line_size == 0) {
+		*key = KEYC_NONE;
+		return (1);
+	}
 
 	if (KEYC_IS_MOUSE(*key) && m != NULL) {
 		if (cmd_mouse_at(mtd->wp, m, &x, &y, 0) != 0) {
@@ -1226,9 +1238,10 @@ mode_tree_key(struct mode_tree_data *mtd, struct client *c, key_code *key,
 		if (yp != NULL)
 			*yp = y;
 		if (x > mtd->width || y > mtd->height) {
+			preview = mtd->preview;
 			if (*key == KEYC_MOUSEDOWN3_PANE)
 				mode_tree_display_menu(mtd, c, x, y, 1);
-			if (mtd->preview == MODE_TREE_PREVIEW_OFF)
+			if (preview == MODE_TREE_PREVIEW_OFF)
 				*key = KEYC_NONE;
 			return (0);
 		}
@@ -1275,6 +1288,7 @@ mode_tree_key(struct mode_tree_data *mtd, struct client *c, key_code *key,
 	switch (*key) {
 	case 'q':
 	case '\033': /* Escape */
+	case '['|KEYC_CTRL:
 	case 'g'|KEYC_CTRL:
 		return (1);
 	case KEYC_F1:

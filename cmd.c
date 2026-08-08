@@ -71,6 +71,7 @@ extern const struct cmd_entry cmd_lock_server_entry;
 extern const struct cmd_entry cmd_lock_session_entry;
 extern const struct cmd_entry cmd_move_pane_entry;
 extern const struct cmd_entry cmd_move_window_entry;
+extern const struct cmd_entry cmd_new_pane_entry;
 extern const struct cmd_entry cmd_new_session_entry;
 extern const struct cmd_entry cmd_new_window_entry;
 extern const struct cmd_entry cmd_next_layout_entry;
@@ -163,6 +164,7 @@ const struct cmd_entry *cmd_table[] = {
 	&cmd_lock_session_entry,
 	&cmd_move_pane_entry,
 	&cmd_move_window_entry,
+	&cmd_new_pane_entry,
 	&cmd_new_session_entry,
 	&cmd_new_window_entry,
 	&cmd_next_layout_entry,
@@ -303,6 +305,8 @@ cmd_unpack_argv(char *buf, size_t len, int argc, char ***argv)
 
 	if (argc == 0)
 		return (0);
+	if (argc < 0 || argc > 1000)
+		return (-1);
 	*argv = xcalloc(argc, sizeof **argv);
 
 	buf[len - 1] = '\0';
@@ -772,9 +776,9 @@ cmd_mouse_at(struct window_pane *wp, struct mouse_event *m, u_int *xp,
 	if (m->statusat == 0 && y >= m->statuslines)
 		y -= m->statuslines;
 
-	if (x < wp->xoff || x >= wp->xoff + wp->sx)
+	if ((int)x < wp->xoff || (int)x >= wp->xoff + (int)wp->sx)
 		return (-1);
-	if (y < wp->yoff || y >= wp->yoff + wp->sy)
+	if ((int)y < wp->yoff || (int)y >= wp->yoff + (int)wp->sy)
 		return (-1);
 
 	if (xp != NULL)

@@ -74,8 +74,6 @@ spawn_log(const char *from, struct spawn_context *sc)
 struct winlink *
 spawn_window(struct spawn_context *sc, char **cause)
 {
-	struct cmdq_item	*item = sc->item;
-	struct client		*c = cmdq_get_client(item);
 	struct session		*s = sc->s;
 	struct window		*w;
 	struct window_pane	*wp;
@@ -179,12 +177,12 @@ spawn_window(struct spawn_context *sc, char **cause)
 	/* Set the name of the new window. */
 	if (~sc->flags & SPAWN_RESPAWN) {
 		free(w->name);
-		if (sc->name != NULL) {
-			w->name = format_single(item, sc->name, c, s, NULL,
-			    NULL);
-			options_set_number(w->options, "automatic-rename", 0);
-		} else
+		if (sc->name == NULL || *sc->name == '\0')
 			w->name = default_window_name(w);
+		else {
+			w->name = xstrdup(sc->name);
+			options_set_number(w->options, "automatic-rename", 0);
+		}
 	}
 
 	/* Switch to the new window if required. */
@@ -265,15 +263,26 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		sc->wp0->ictx = NULL;
 		new_wp = sc->wp0;
 		new_wp->flags &= ~(PANE_STATUSREADY|PANE_STATUSDRAWN);
-	} else if (sc->lc == NULL) {
-		new_wp = window_add_pane(w, NULL, hlimit, sc->flags);
-		layout_init(w, new_wp);
 	} else {
-		new_wp = window_add_pane(w, sc->wp0, hlimit, sc->flags);
-		if (sc->flags & SPAWN_ZOOM)
-			layout_assign_pane(sc->lc, new_wp, 1);
-		else
-			layout_assign_pane(sc->lc, new_wp, 0);
+		if (sc->lc == NULL) {
+			new_wp = window_add_pane(w, NULL, hlimit, sc->flags);
+			layout_init(w, new_wp);
+		} else {
+			new_wp = window_add_pane(w, sc->wp0, hlimit, sc->flags);
+			if (sc->flags & SPAWN_ZOOM)
+				layout_assign_pane(sc->lc, new_wp, 1);
+			else
+				layout_assign_pane(sc->lc, new_wp, 0);
+		}
+		if (sc->flags & SPAWN_FLOATING)
+			new_wp->layout_cell->flags |= LAYOUT_CELL_FLOATING;
+
+		/*
+		 * If window currently zoomed, window_set_active_pane calls
+		 * window_unzoom which it copies back the saved_layout_cell.
+		 */
+		if (w->flags & WINDOW_ZOOMED)
+			new_wp->saved_layout_cell = new_wp->layout_cell;
 	}
 
 	/*
@@ -368,7 +377,7 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		goto complete;
 	}
 
-    /* Store current working directory and change to new one. */
+	/* Store current working directory and change to new one. */
 	if (getcwd(path, sizeof path) != NULL) {
 		if (chdir(new_wp->cwd) == 0)
 			actual_cwd = new_wp->cwd;

@@ -116,7 +116,6 @@ session_create(const char *prefix, const char *name, const char *cwd,
 	s = xcalloc(1, sizeof *s);
 	s->references = 1;
 	s->flags = 0;
-
 	s->cwd = xstrdup(cwd);
 
 	TAILQ_INIT(&s->lastw);
@@ -227,24 +226,6 @@ session_destroy(struct session *s, int notify, const char *from)
 	free((void *)s->cwd);
 
 	session_remove_ref(s, __func__);
-}
-
-/* Sanitize session name. */
-char *
-session_check_name(const char *name)
-{
-	char	*copy, *cp, *new_name;
-
-	if (*name == '\0')
-		return (NULL);
-	copy = xstrdup(name);
-	for (cp = copy; *cp != '\0'; cp++) {
-		if (*cp == ':' || *cp == '.')
-			*cp = '_';
-	}
-	utf8_stravis(&new_name, copy, VIS_OCTAL|VIS_CSTYLE|VIS_TAB|VIS_NL);
-	free(copy);
-	return (new_name);
 }
 
 /* Lock session if it has timed out. */
