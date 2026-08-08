@@ -471,6 +471,7 @@ menu_key_cb(struct client *c, void *data, struct key_event *event)
 	case '\r':
 		goto chosen;
 	case '\033': /* Escape */
+	case '['|KEYC_CTRL:
 	case 'c'|KEYC_CTRL:
 	case 'g'|KEYC_CTRL:
 	case 'q':
@@ -637,7 +638,7 @@ menu_display(struct menu *menu, int flags, int starting_choice,
 	    style, selected_style, border_style, fs, cb, data);
 	if (md == NULL)
 		return (-1);
-	server_client_set_overlay(c, 0, NULL, menu_mode_cb, menu_draw_cb,
-	    menu_key_cb, menu_free_cb, menu_resize_cb, md);
+	server_client_set_overlay(c, 0, menu_check_cb, menu_mode_cb,
+	    menu_draw_cb, menu_key_cb, menu_free_cb, menu_resize_cb, md);
 	return (0);
 }

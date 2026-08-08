@@ -104,6 +104,27 @@ static const struct menu_item popup_internal_menu_items[] = {
 };
 
 static void
+popup_free(struct popup_data *pd)
+{
+	server_client_unref(pd->c);
+
+	if (pd->job != NULL)
+		job_free(pd->job);
+	input_free(pd->ictx);
+
+	free(pd->or[0].ranges);
+	free(pd->or[1].ranges);
+	free(pd->r.ranges);
+	screen_free(&pd->s);
+	colour_palette_free(&pd->palette);
+
+	free(pd->title);
+	free(pd->style);
+	free(pd->border_style);
+	free(pd);
+}
+
+static void
 popup_reapply_styles(struct popup_data *pd)
 {
 	struct client		*c = pd->c;
@@ -164,7 +185,6 @@ popup_set_client_cb(struct tty_ctx *ttyctx, struct client *c)
 	if (pd->c->flags & CLIENT_REDRAWOVERLAY)
 		return (0);
 
-	ttyctx->bigger = 0;
 	ttyctx->wox = 0;
 	ttyctx->woy = 0;
 	ttyctx->wsx = c->tty.sx;
@@ -187,6 +207,7 @@ popup_init_ctx_cb(struct screen_write_ctx *ctx, struct tty_ctx *ttyctx)
 	struct popup_data	*pd = ctx->arg;
 
 	memcpy(&ttyctx->defaults, &pd->defaults, sizeof ttyctx->defaults);
+	ttyctx->flags &= ~TTY_CTX_WINDOW_BIGGER;
 	ttyctx->palette = &pd->palette;
 	ttyctx->redraw_cb = popup_redraw_cb;
 	ttyctx->set_client_cb = popup_set_client_cb;
@@ -343,22 +364,8 @@ popup_free_cb(struct client *c, void *data)
 			cmdq_get_client(item)->retval = pd->status;
 		cmdq_continue(item);
 	}
-	server_client_unref(pd->c);
 
-	if (pd->job != NULL)
-		job_free(pd->job);
-	input_free(pd->ictx);
-
-	free(pd->or[0].ranges);
-	free(pd->or[1].ranges);
-	free(pd->r.ranges);
-	screen_free(&pd->s);
-	colour_palette_free(&pd->palette);
-
-	free(pd->title);
-	free(pd->style);
-	free(pd->border_style);
-	free(pd);
+	popup_free(pd);
 }
 
 static void
@@ -428,7 +435,7 @@ popup_make_pane(struct popup_data *pd, enum layout_type type)
 		pd->job = NULL;
 	}
 
-	screen_set_title(&pd->s, new_wp->base.title);
+	screen_set_title(&pd->s, new_wp->base.title, 0);
 	screen_free(&new_wp->base);
 	memcpy(&new_wp->base, &pd->s, sizeof wp->base);
 	screen_resize(&new_wp->base, new_wp->sx, new_wp->sy, 1);
@@ -857,6 +864,10 @@ popup_display(int flags, enum box_lines lines, struct cmdq_item *item, u_int px,
 		pd->job = job_run(shellcmd, argc, argv, env, s, cwd,
 		    popup_job_update_cb, popup_job_complete_cb, NULL, pd,
 		    JOB_NOWAIT|JOB_PTY|JOB_KEEPWRITE|JOB_DEFAULTSHELL, jx, jy);
+		if (pd->job == NULL) {
+			popup_free(pd);
+			return (-1);
+		}
 		pd->ictx = input_init(NULL, job_get_event(pd->job),
 		    &pd->palette, c);
 	}

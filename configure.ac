@@ -1,6 +1,6 @@
 # configure.ac
 
-AC_INIT([tmux], next-3.7)
+AC_INIT([tmux], 3.7b)
 AC_PREREQ([2.60])
 
 AC_CONFIG_AUX_DIR(etc)
@@ -72,6 +72,15 @@ AC_ARG_ENABLE(
 	enable_optimizations=yes
 )
 AM_CONDITIONAL(IS_OPTIMIZED, test "x$enable_optimizations" = xyes)
+
+# Is this --enable-asan?
+AC_ARG_ENABLE(
+	asan,
+	AS_HELP_STRING(--enable-asan, enable ASAN build flags),
+	,
+	enable_asan=no
+)
+AM_CONDITIONAL(IS_ASAN, test "x$enable_asan" = xyes)
 
 # Is this a static build?
 AC_ARG_ENABLE(
@@ -288,24 +297,24 @@ fi
 # Look for ncurses or curses. Try pkg-config first then directly for the
 # library.
 PKG_CHECK_MODULES(
-	LIBTINFO,
-	tinfo,
+	LIBTINFOW,
+	tinfow,
 	[
-		AM_CPPFLAGS="$LIBTINFO_CFLAGS $AM_CPPFLAGS"
-		CPPFLAGS="$LIBTINFO_CFLAGS $SAVED_CPPFLAGS"
-		LIBS="$LIBTINFO_LIBS $LIBS"
+		AM_CPPFLAGS="$LIBTINFOW_CFLAGS $AM_CPPFLAGS"
+		CPPFLAGS="$LIBTINFOW_CFLAGS $SAVED_CPPFLAGS"
+		LIBS="$LIBTINFOW_LIBS $LIBS"
 		found_ncurses=yes
 	],
 	found_ncurses=no
 )
 if test "x$found_ncurses" = xno; then
 	PKG_CHECK_MODULES(
-		LIBNCURSES,
-		ncurses,
+		LIBTINFO,
+		tinfo,
 		[
-			AM_CPPFLAGS="$LIBNCURSES_CFLAGS $AM_CPPFLAGS"
-			CPPFLAGS="$LIBNCURSES_CFLAGS $SAVED_CPPFLAGS"
-			LIBS="$LIBNCURSES_LIBS $LIBS"
+			AM_CPPFLAGS="$LIBTINFO_CFLAGS $AM_CPPFLAGS"
+			CPPFLAGS="$LIBTINFO_CFLAGS $SAVED_CPPFLAGS"
+			LIBS="$LIBTINFO_LIBS $LIBS"
 			found_ncurses=yes
 		],
 		found_ncurses=no
@@ -325,9 +334,22 @@ if test "x$found_ncurses" = xno; then
 	)
 fi
 if test "x$found_ncurses" = xno; then
+	PKG_CHECK_MODULES(
+		LIBNCURSES,
+		ncurses,
+		[
+			AM_CPPFLAGS="$LIBNCURSES_CFLAGS $AM_CPPFLAGS"
+			CPPFLAGS="$LIBNCURSES_CFLAGS $SAVED_CPPFLAGS"
+			LIBS="$LIBNCURSES_LIBS $LIBS"
+			found_ncurses=yes
+		],
+		found_ncurses=no
+	)
+fi
+if test "x$found_ncurses" = xno; then
 	AC_SEARCH_LIBS(
 		setupterm,
-		[tinfo terminfo ncurses ncursesw],
+		[tinfow tinfo terminfo ncursesw ncurses],
 		found_ncurses=yes,
 		found_ncurses=no
 	)

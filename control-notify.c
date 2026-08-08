@@ -24,7 +24,8 @@
 #include "tmux.h"
 
 #define CONTROL_SHOULD_NOTIFY_CLIENT(c) \
-	((c) != NULL && ((c)->flags & CLIENT_CONTROL))
+	((c) != NULL && ((c)->flags & CLIENT_CONTROL) && \
+	 (c)->control_state != NULL)
 
 void
 control_notify_pane_mode_changed(int pane)
@@ -76,6 +77,8 @@ control_notify_window_pane_changed(struct window *w)
 {
 	struct client	*c;
 
+	if (w->active == NULL)
+		return;
 	TAILQ_FOREACH(c, &clients, entry) {
 		if (!CONTROL_SHOULD_NOTIFY_CLIENT(c))
 			continue;

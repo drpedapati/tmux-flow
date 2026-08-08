@@ -56,8 +56,8 @@ sort_buffer_cmp(const void *a0, const void *b0)
 	struct sort_criteria			*sort_crit = sort_criteria;
 	const struct paste_buffer *const	*a = a0;
 	const struct paste_buffer *const	*b = b0;
-	const struct paste_buffer 		*pa = *a;
-	const struct paste_buffer 		*pb = *b;
+	const struct paste_buffer		*pa = *a;
+	const struct paste_buffer		*pb = *b;
 	int					 result = 0;
 
 	switch (sort_crit->order) {
@@ -65,7 +65,12 @@ sort_buffer_cmp(const void *a0, const void *b0)
 		result = strcmp(pa->name, pb->name);
 		break;
 	case SORT_CREATION:
-		result = pa->order - pb->order;
+		if (pa->order > pb->order)
+			result = -1;
+		else if (pa->order < pb->order)
+			result = 1;
+		else
+			result = 0;
 		break;
 	case SORT_SIZE:
 		result = pa->size - pb->size;
@@ -74,6 +79,7 @@ sort_buffer_cmp(const void *a0, const void *b0)
 	case SORT_INDEX:
 	case SORT_MODIFIER:
 	case SORT_ORDER:
+	case SORT_Z:
 	case SORT_END:
 		break;
 	}
@@ -92,8 +98,8 @@ sort_client_cmp(const void *a0, const void *b0)
 	struct sort_criteria		*sort_crit = sort_criteria;
 	const struct client *const	*a = a0;
 	const struct client *const	*b = b0;
-	const struct client 		*ca = *a;
-	const struct client 		*cb = *b;
+	const struct client		*ca = *a;
+	const struct client		*cb = *b;
 	int				 result = 0;
 
 	switch (sort_crit->order) {
@@ -120,6 +126,7 @@ sort_client_cmp(const void *a0, const void *b0)
 	case SORT_INDEX:
 	case SORT_MODIFIER:
 	case SORT_ORDER:
+	case SORT_Z:
 	case SORT_END:
 		break;
 	}
@@ -172,6 +179,7 @@ sort_session_cmp(const void *a0, const void *b0)
 	case SORT_MODIFIER:
 	case SORT_ORDER:
 	case SORT_SIZE:
+	case SORT_Z:
 	case SORT_END:
 		break;
 	}
@@ -211,6 +219,11 @@ sort_pane_cmp(const void *a0, const void *b0)
 	case SORT_NAME:
 		result = strcmp(a->screen->title, b->screen->title);
 		break;
+	case SORT_Z:
+		window_pane_zindex(a, &ai);
+		window_pane_zindex(b, &bi);
+		result = ai - bi;
+		break;
 	case SORT_MODIFIER:
 	case SORT_ORDER:
 	case SORT_END:
@@ -243,11 +256,11 @@ sort_winlink_cmp(const void *a0, const void *b0)
 		break;
 	case SORT_CREATION:
 		if (timercmp(&wa->creation_time, &wb->creation_time, >)) {
-			result = -1;
+			result = 1;
 			break;
 		}
 		if (timercmp(&wa->creation_time, &wb->creation_time, <)) {
-			result = 1;
+			result = -1;
 			break;
 		}
 		break;
@@ -269,6 +282,7 @@ sort_winlink_cmp(const void *a0, const void *b0)
 		break;
 	case SORT_MODIFIER:
 	case SORT_ORDER:
+	case SORT_Z:
 	case SORT_END:
 		break;
 	}
@@ -304,6 +318,7 @@ sort_key_binding_cmp(const void *a0, const void *b0)
 	case SORT_CREATION:
 	case SORT_ORDER:
 	case SORT_SIZE:
+	case SORT_Z:
 	case SORT_END:
 		break;
 	}
@@ -358,6 +373,8 @@ sort_order_from_string(const char* order)
 			return (SORT_ORDER);
 		if (strcasecmp(order, "size") == 0)
 			return (SORT_SIZE);
+		if (strcasecmp(order, "z") == 0)
+			return (SORT_Z);
 	}
 	return (SORT_END);
 }
@@ -379,6 +396,8 @@ sort_order_to_string(enum sort_order order)
 		return "order";
 	if (order == SORT_SIZE)
 		return "size";
+	if (order == SORT_Z)
+		return "z";
 	return (NULL);
 }
 
@@ -425,6 +444,10 @@ sort_get_clients(u_int *n, struct sort_criteria *sort_crit)
 
 	i = 0;
 	TAILQ_FOREACH(c, &clients, entry) {
+		if (c->flags & CLIENT_UNATTACHEDFLAGS)
+			continue;
+		if (~c->flags & CLIENT_ATTACHED)
+			continue;
 		if (lsz <= i) {
 			lsz += 100;
 			l = xreallocarray(l, lsz, sizeof *l);
@@ -468,7 +491,7 @@ sort_get_panes(u_int *n, struct sort_criteria *sort_crit)
 	struct winlink			 *wl;
 	struct window			 *w;
 	struct window_pane		 *wp;
-	u_int		 		  i;
+	u_int				  i;
 	static struct window_pane	**l = NULL;
 	static u_int			  lsz = 0;
 
@@ -499,12 +522,13 @@ sort_get_panes_session(struct session *s, u_int *n,
 	struct winlink			 *wl = NULL;
 	struct window			 *w = NULL;
 	struct window_pane		 *wp = NULL;
-	u_int		 		  i;
+	u_int				  i;
 	static struct window_pane	**l = NULL;
 	static u_int			  lsz = 0;
 
 	i = 0;
 	RB_FOREACH(wl, winlinks, &s->windows)  {
+		w = wl->window;
 		TAILQ_FOREACH(wp, &w->panes, entry) {
 			if (lsz <= i) {
 				lsz += 100;
@@ -525,7 +549,7 @@ sort_get_panes_window(struct window *w, u_int *n,
     struct sort_criteria *sort_crit)
 {
 	struct window_pane		 *wp;
-	u_int		 		  i;
+	u_int				  i;
 	static struct window_pane	**l = NULL;
 	static u_int			  lsz = 0;
 
