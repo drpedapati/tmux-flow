@@ -1,4 +1,4 @@
-/* $OpenBSD: spawn.c,v 1.50 2026/07/23 09:38:27 nicm Exp $ */
+/* $OpenBSD: spawn.c,v 1.58 2026/10/16 14:26:08 nicm Exp $ */
 
 /*
  * Copyright (c) 2019 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -140,6 +140,7 @@ spawn_window(struct spawn_context *sc, char **cause)
 			}
 		}
 
+		window_unzoom(w, 1);
 		sc->wp0 = TAILQ_FIRST(&w->panes);
 		TAILQ_REMOVE(&w->panes, sc->wp0, entry);
 
@@ -166,8 +167,8 @@ spawn_window(struct spawn_context *sc, char **cause)
 		}
 		if (wl != NULL) {
 			/*
-			 * Can't use session_detach as it will destroy session
-			 * if this makes it empty.
+			 * Can't use session_detach as it won't detach the only
+			 * window.
 			 */
 			wl->flags &= ~WINLINK_ALERTFLAGS;
 			events_fire_winlink("window-unlinked", wl);
@@ -243,7 +244,7 @@ struct window_pane *
 spawn_pane(struct spawn_context *sc, char **cause)
 {
 	struct cmdq_item	 *item = sc->item;
-	struct client		 *c;
+	struct client		 *c, *loop;
 	struct session		 *s = sc->s;
 	struct session		 *ts;
 	struct window		 *w = sc->wl->window;
@@ -322,15 +323,30 @@ spawn_pane(struct spawn_context *sc, char **cause)
 			sc->wp0->event = NULL;
 		}
 		if (sc->wp0->fd != -1) {
+			window_pane_utmp_remove(sc->wp0);
 			close(sc->wp0->fd);
 			sc->wp0->fd = -1;
 		}
 		window_pane_reset_mode_all(sc->wp0);
-		screen_reinit(&sc->wp0->base, 0);
+		screen_reinit(&sc->wp0->base);
 		if (sc->wp0->ictx != NULL) {
 			input_free(sc->wp0->ictx);
 			sc->wp0->ictx = NULL;
 		}
+
+		/*
+		 * The old buffer is gone and the new one starts empty, so
+		 * offsets into the old buffer no longer mean anything. Reset
+		 * them, and drop output control clients still had queued.
+		 */
+		sc->wp0->offset.used = 0;
+		sc->wp0->base_offset = 0;
+		sc->wp0->pipe_offset.used = 0;
+		TAILQ_FOREACH(loop, &clients, entry) {
+			if (loop->flags & CLIENT_CONTROL)
+				control_reset_pane(loop, sc->wp0);
+		}
+
 		new_wp = sc->wp0;
 		new_wp->flags &= ~(PANE_STATUSREADY|PANE_STATUSDRAWN);
 	} else {
@@ -346,6 +362,8 @@ spawn_pane(struct spawn_context *sc, char **cause)
 		}
 		if (sc->flags & SPAWN_FLOATING)
 			new_wp->layout_cell->flags |= LAYOUT_CELL_FLOATING;
+		if (sc->flags & SPAWN_FLOATOVERZOOM)
+			new_wp->flags |= PANE_FLOATOVERZOOM;
 
 		/*
 		 * If window currently zoomed, window_set_active_pane calls
@@ -361,7 +379,9 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	 * directory.
 	 */
 	if (sc->argc == 0 && (~sc->flags & SPAWN_RESPAWN)) {
-		cmd = options_get_string(s->options, "default-command");
+		cmd = options_get_string(w->options, "window-default-command");
+		if (cmd == NULL || *cmd == '\0')
+			cmd = options_get_string(s->options, "default-command");
 		if (cmd != NULL && *cmd != '\0') {
 			argc = 1;
 			argv = (char **)&cmd;
@@ -442,6 +462,8 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	/* If the command is empty, don't fork a child process. */
 	if (sc->flags & SPAWN_EMPTY) {
 		new_wp->flags |= PANE_EMPTY;
+		new_wp->pid = 0;
+		*new_wp->tty = '\0';
 		new_wp->base.mode &= ~MODE_CURSOR;
 		new_wp->base.mode |= MODE_CRLF;
 		goto complete;
@@ -449,14 +471,14 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	new_wp->flags &= ~PANE_EMPTY;
 
 	/* Store current working directory and change to new one. */
-	if (getcwd(path, sizeof path) != NULL) {
-		if (chdir(new_wp->cwd) == 0)
-			actual_cwd = new_wp->cwd;
-		else if (home != NULL && chdir(home) == 0)
-			actual_cwd = home;
-		else if (chdir("/") == 0)
-			actual_cwd = "/";
-	}
+	if (getcwd(path, sizeof path) == NULL)
+		strlcpy(path, "/", sizeof path);
+	if (chdir(new_wp->cwd) == 0)
+		actual_cwd = new_wp->cwd;
+	else if (home != NULL && chdir(home) == 0)
+		actual_cwd = home;
+	else if (chdir("/") == 0)
+		actual_cwd = "/";
 
 	/* Fork the new process. */
 	new_wp->pid = fdforkpty(ptm_fd, &new_wp->fd, new_wp->tty, NULL, &ws);
@@ -559,16 +581,8 @@ spawn_pane(struct spawn_context *sc, char **cause)
 	_exit(1);
 
 complete:
-#ifdef HAVE_UTEMPTER
-	if (~new_wp->flags & PANE_EMPTY) {
-		xasprintf(&cp, "tmux(%lu).%%%u", (long)getpid(), new_wp->id);
-		utempter_add_record(new_wp->fd, cp);
-		kill(getpid(), SIGCHLD);
-		free(cp);
-	}
-#endif
-
 	new_wp->flags &= ~PANE_EXITED;
+	window_pane_utmp_add(new_wp);
 
 	sigprocmask(SIG_SETMASK, &oldset, NULL);
 	window_pane_set_event(new_wp);
@@ -685,7 +699,7 @@ spawn_editor_finish(struct window_pane *wp)
 
 struct spawn_editor_state *
 spawn_editor(struct client *c, const char *buf, size_t len,
-    spawn_finish_edit_cb cb, void *arg)
+    const char *editor, spawn_finish_edit_cb cb, void *arg)
 {
 	struct spawn_editor_state	*es;
 	struct spawn_context		 sc = { 0 };
@@ -699,13 +713,13 @@ spawn_editor(struct client *c, const char *buf, size_t len,
 	FILE				*f;
 	char				*cmd, *cause = NULL;
 	char				 path[] = _PATH_TMP "tmux.XXXXXXXX";
-	const char			*editor;
 	int				 fd;
 
 	if (w->modal != NULL)
 		return (NULL);
 
-	editor = options_get_string(global_options, "editor");
+	if (editor == NULL)
+		editor = options_get_string(global_options, "editor");
 	fd = mkstemp(path);
 	if (fd == -1)
 		return (NULL);
@@ -731,10 +745,10 @@ spawn_editor(struct client *c, const char *buf, size_t len,
 	lg.sy = w->sy * 9 / 10;
 	lg.xoff = w->sx / 2 - lg.sx / 2;
 	lg.yoff = w->sy / 2 - lg.sy / 2;
-	window_push_modal_zoom(w);
+	window_push_zoom(w, 0, 1);
 	lc = layout_floating_pane(w, NULL, &lg);
 	if (lc == NULL) {
-		window_pop_modal_zoom(w);
+		window_pop_zoom(w);
 		spawn_editor_free(es);
 		return (NULL);
 	}
@@ -751,17 +765,18 @@ spawn_editor(struct client *c, const char *buf, size_t len,
 	sc.environ = env;
 	sc.idx = -1;
 	sc.cwd = _PATH_TMP;
-	sc.flags = SPAWN_FLOATING|SPAWN_MODAL;
+	sc.flags = SPAWN_FLOATING|SPAWN_MODAL|SPAWN_FLOATOVERZOOM;
 
 	wp = spawn_pane(&sc, &cause);
 	free(cmd);
 	environ_free(env);
 	if (wp == NULL) {
 		free(cause);
-		window_pop_modal_zoom(w);
+		window_pop_zoom(w);
 		spawn_editor_free(es);
 		return (NULL);
 	}
+	window_pop_zoom(w);
 	options_set_number(wp->options, "remain-on-exit", 0);
 	es->pid = wp->pid;
 	wp->editor = es;

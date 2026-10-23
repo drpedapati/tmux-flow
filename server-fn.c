@@ -1,4 +1,4 @@
-/* $OpenBSD: server-fn.c,v 1.149 2026/07/27 14:25:46 nicm Exp $ */
+/* $OpenBSD: server-fn.c,v 1.154 2026/09/21 12:43:36 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -226,10 +226,11 @@ server_kill_pane(struct window_pane *wp)
 		server_kill_window(w, 1);
 		recalculate_sizes();
 	} else {
-		server_unzoom_window(w);
+		window_push_zoom(w, 0, wp->flags & PANE_FLOATOVERZOOM);
 		server_client_remove_pane(wp);
 		layout_close_pane(wp);
 		window_remove_pane(w, wp);
+		window_pop_zoom(w);
 		server_redraw_window(w);
 	}
 }
@@ -309,8 +310,8 @@ server_link_window(struct session *src, struct winlink *srcwl,
 		}
 		if (killflag) {
 			/*
-			 * Can't use session_detach as it will destroy session
-			 * if this makes it empty.
+			 * Can't use session_detach as it won't detach the only
+			 * window.
 			 */
 			events_fire_winlink("window-unlinked", dstwl);
 			dstwl->flags &= ~WINLINK_ALERTFLAGS;
@@ -362,10 +363,7 @@ server_destroy_pane(struct window_pane *wp, int notify)
 	u_int			 sy = screen_size_y(&wp->base);
 
 	if (wp->fd != -1) {
-#ifdef HAVE_UTEMPTER
-		utempter_remove_record(wp->fd);
-		kill(getpid(), SIGCHLD);
-#endif
+		window_pane_utmp_remove(wp);
 		bufferevent_free(wp->event);
 		wp->event = NULL;
 		close(wp->fd);
@@ -378,13 +376,14 @@ server_destroy_pane(struct window_pane *wp, int notify)
 		wp->pipe_fd = -1;
 	}
 
-	remain_on_exit = options_get_number(wp->options, "remain-on-exit");
-	if (remain_on_exit != 0 && (~wp->flags & PANE_STATUSREADY))
+	if (~wp->flags & PANE_STATUSREADY)
 		return;
+	remain_on_exit = options_get_number(wp->options, "remain-on-exit");
 	switch (remain_on_exit) {
 	case 0:
 		break;
 	case 2:
+	case 4:
 		if (WIFEXITED(wp->status) && WEXITSTATUS(wp->status) == 0)
 			break;
 		/* FALLTHROUGH */
@@ -421,15 +420,17 @@ server_destroy_pane(struct window_pane *wp, int notify)
 	if (notify)
 		server_fire_pane_exit("pane-exited", wp);
 
-	server_unzoom_window(w);
+	window_push_zoom(w, 0, wp->flags & PANE_FLOATOVERZOOM);
 	server_client_remove_pane(wp);
 	layout_close_pane(wp);
 	window_remove_pane(w, wp);
 
 	if (TAILQ_EMPTY(&w->panes))
 		server_kill_window(w, 1);
-	else
+	else {
+		window_pop_zoom(w);
 		server_redraw_window(w);
+	}
 }
 
 static void
@@ -551,6 +552,7 @@ server_check_unattached(void)
 				continue;
 			break;
 		}
+		server_destroy_session(s);
 		session_destroy(s, 1, __func__);
 	}
 }

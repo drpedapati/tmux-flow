@@ -1,4 +1,4 @@
-/* $OpenBSD: server.c,v 1.215 2026/08/03 10:07:57 nicm Exp $ */
+/* $OpenBSD: server.c,v 1.216 2026/08/18 07:24:49 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -129,6 +129,7 @@ server_create_socket(uint64_t flags, char **cause)
 		mask = umask(S_IXUSR|S_IRWXG|S_IRWXO);
 	if (bind(fd, (struct sockaddr *)&sa, sizeof sa) == -1) {
 		saved_errno = errno;
+		umask(mask);
 		close(fd);
 		errno = saved_errno;
 		goto fail;
@@ -218,6 +219,10 @@ server_start(struct tmuxproc *client, uint64_t flags, struct event_base *base,
 	hooks_build_events();
 	TAILQ_INIT(&message_log);
 	gettimeofday(&start_time, NULL);
+
+#ifdef HAVE_KEYCTL
+	fork_session_keyring();
+#endif
 
 #ifdef HAVE_SYSTEMD
 	server_fd = systemd_create_socket(flags, &cause);
@@ -447,6 +452,10 @@ server_signal(int sig)
 		server_child_signal();
 		break;
 	case SIGUSR1:
+#ifdef HAVE_SYSTEMD
+		if (systemd_activated())
+			break;
+#endif
 		event_del(&server_ev_accept);
 		fd = server_create_socket(server_client_flags, NULL);
 		if (fd != -1) {

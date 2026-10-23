@@ -1,4 +1,4 @@
-/* $OpenBSD: cmd-split-window.c,v 1.148 2026/08/07 08:10:53 nicm Exp $ */
+/* $OpenBSD: cmd-split-window.c,v 1.156 2026/10/16 08:11:03 nicm Exp $ */
 
 /*
  * Copyright (c) 2009 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -38,10 +38,11 @@ static void		cmd_split_window_mouse_resize(struct client *,
 
 const struct cmd_entry cmd_new_pane_entry = {
 	.name = "new-pane",
+	.description = "Create a floating pane.",
 	.alias = "newp",
 
-	.args = { "bB:Cc:de:EfF:hIkl:LMm:Op:PR:s:S:t:T:vWx:X:y:Y:Z", 0, -1, NULL },
-	.usage = "[-bCdefhIklMOPvWZ] [-B border-lines] "
+	.args = { "AbB:Cc:Dde:EfF:hIkl:KLMm:Op:PR:s:S:t:T:vWx:X:y:Y:Z", 0, -1, NULL },
+	.usage = "[-AbCDdEfhIkKLMOPvWZ] [-B border-lines] "
 		 "[-c start-directory] [-e environment] "
 		 "[-F format] [-l size] [-m message] [-p percentage] "
 		 "[-s style] [-S active-border-style] "
@@ -57,10 +58,11 @@ const struct cmd_entry cmd_new_pane_entry = {
 
 const struct cmd_entry cmd_split_window_entry = {
 	.name = "split-window",
+	.description = "Create a new pane by splitting a window.",
 	.alias = "splitw",
 
 	.args = { "bB:c:de:EfF:hIkl:m:p:PR:s:S:t:T:vWZ", 0, -1, NULL },
-	.usage = "[-bdefhIklPvWZ] [-B border-lines] [-c start-directory] "
+	.usage = "[-bdEfhIkPvWZ] [-B border-lines] [-c start-directory] "
 		 "[-e environment] [-F format] [-l size] [-m message] "
 		 "[-p percentage] [-s style] [-S active-border-style] "
 		 "[-R inactive-border-style] [-T title] "
@@ -89,6 +91,7 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 	struct cmd_find_state	 fs;
 	struct key_event	*event = cmdq_get_event(item);
 	int			 input, empty, is_floating, flags = 0;
+	int			 restore_zoom = 0;
 	const char		*template, *style, *value;
 	char			*cause = NULL, *cp, *title;
 	const struct options_table_entry *oe;
@@ -96,10 +99,16 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 	enum pane_lines		 lines;
 	u_int			 count = args_count(args);
 
+	if (window_active_pane_is_over_zoom(w))
+		restore_zoom = 1;
+
 	if (cmd_get_entry(self) == &cmd_new_pane_entry)
 		is_floating = !args_has(args, 'L');
 	else {
-		window_unzoom(w, 1);
+		if (!window_pane_is_visible(wp))
+			restore_zoom = 0;
+		if (!restore_zoom)
+			window_unzoom(w, 1);
 		is_floating = window_pane_is_floating(wp);
 		flags |= SPAWN_SPLIT;
 	}
@@ -133,7 +142,11 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 	if (args_has(args, 'Z'))
 		flags |= SPAWN_ZOOM;
 	if (args_has(args, 'O'))
-		flags |= SPAWN_MODAL;
+		flags |= SPAWN_MODAL|SPAWN_FLOATOVERZOOM;
+	if (is_floating && args_has(args, 'A'))
+		flags |= SPAWN_FLOATOVERZOOM;
+	if ((w->flags & WINDOW_ZOOMED) && (flags & SPAWN_FLOATOVERZOOM))
+		restore_zoom = 1;
 
 	input = args_has(args, 'I');
 	if (input || (count == 1 && *args_string(args, 0) == '\0'))
@@ -169,6 +182,8 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 	if (cause != NULL) {
 		cmdq_error(item, "%s", cause);
 		free(cause);
+		if (restore_zoom)
+			window_pop_zoom(w);
 		return (CMD_RETURN_ERROR);
 	}
 
@@ -202,8 +217,12 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 		 */
 		goto fail;
 	}
+	if (args_has(args, 'K') && args_has(args, 'O'))
+		new_wp->flags |= PANE_CAPTUREALLKEYS;
 	if (args_has(args, 'C') && args_has(args, 'O'))
 		new_wp->flags |= PANE_CLOSEONCLICK;
+	if (args_has(args, 'D') && args_has(args, 'O'))
+		new_wp->flags |= PANE_CLOSEONCANCEL;
 
 	style = args_get(args, 's');
 	if (style != NULL) {
@@ -271,10 +290,8 @@ cmd_split_window_exec(struct cmd *self, struct cmdq_item *item)
 	if (~flags & SPAWN_DETACHED)
 		cmd_find_from_winlink_pane(current, wl, new_wp, 0);
 
-	if ((~flags & SPAWN_FLOATING) && !args_has(args, 'O')) {
-		window_pop_zoom(wp->window);
-		server_redraw_window(wp->window);
-	}
+	window_pop_zoom(w);
+	server_redraw_window(w);
 	server_redraw_session(s);
 
 	if (args_has(args, 'M') && is_floating) {
@@ -322,8 +339,8 @@ fail:
 		if (!is_floating)
 			layout_close_pane(new_wp);
 		window_remove_pane(wp->window, new_wp);
-	} else if (args_has(args, 'O'))
-		window_pop_modal_zoom(wp->window);
+	}
+	window_pop_zoom(w);
 	if (sc.argv != NULL)
 		cmd_free_argv(sc.argc, sc.argv);
 	environ_free(sc.environ);
@@ -341,6 +358,7 @@ cmd_split_window_mouse_resize(struct client *c, struct mouse_event *m)
 	enum pane_lines		 lines;
 	u_int			 sx, sy;
 	int			 x, y, xoff, yoff, border;
+	int			 oxoff, oyoff, osx, osy;
 
 	if (c->tty.mouse_last_pane == -1)
 		return;
@@ -358,6 +376,10 @@ cmd_split_window_mouse_resize(struct client *c, struct mouse_event *m)
 		y -= m->statuslines;
 	else if (m->statusat > 0 && y >= m->statusat)
 		y = m->statusat - 1;
+	if (m->sideat == 0 && x >= (int)m->sidewidth)
+		x -= m->sidewidth;
+	else if (m->sideat > 0 && x >= m->sideat)
+		x = m->sideat - 1;
 
 	lines = window_pane_get_pane_lines(wp);
 	border = (lines != PANE_LINES_NONE);
@@ -396,8 +418,14 @@ cmd_split_window_mouse_resize(struct client *c, struct mouse_event *m)
 	if (sy < PANE_MINIMUM)
 		sy = PANE_MINIMUM;
 
+	oxoff = wp->xoff;
+	oyoff = wp->yoff;
+	osx = wp->sx;
+	osy = wp->sy;
+
 	layout_set_size(lc, sx, sy, xoff, yoff);
 	layout_fix_panes(w, NULL);
-	server_redraw_window(w);
+
+	window_redraw_floating_pane(wp, oxoff, oyoff, osx, osy);
 	server_redraw_window_borders(w);
 }
