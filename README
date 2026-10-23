@@ -21,8 +21,8 @@ Opt-in, by sourcing tmux-flow.conf (see Install):
 Which tmux is under this?
 -------------------------
 
-tmux-flow currently tracks upstream's 3.8 *development* line, so `tmux -V`
-reports `next-3.8` rather than a released tmux version. That is deliberate:
+tmux-flow currently tracks upstream's 3.9 *development* line, so `tmux -V`
+reports `next-3.9` rather than a released tmux version. That is deliberate:
 it is where floating panes, modal panes and upstream's own theme system
 live. It also means you are running upstream code that has not been through
 a tmux release.
@@ -145,6 +145,12 @@ Regression suite
 
 Changelog
 -----------------------------------
+
+v2.2 — 2026-10-23
+  Merged upstream tmux through 1d995c09 (594 commits), including the
+  3.8 release and subsequent 3.9 development work. `tmux -V` now
+  reports next-3.9. The fork's F-key bindings, mouse defaults and
+  opt-in plugin configuration are preserved.
 
 v2.1 — 2026-08-08
   Stopped forcing @continuum-restore on. It made continuum restore a

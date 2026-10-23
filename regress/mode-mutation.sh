@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. ./regress-common.inc
+
 # Exercise modes while their backing objects are changed from outside the
 # client displaying the mode. This catches stale selection indexes and pointers
 # after a mode list is shrunk or rebuilt.
@@ -8,7 +10,7 @@ PATH=/bin:/usr/bin
 TERM=screen
 
 [ -z "$TEST_TMUX" ] && TEST_TMUX=$(readlink -f ../tmux)
-TMP=$(mktemp -d) || exit 1
+TMP=$(test_tmpdir) || exit 1
 TMUX_TMPDIR="$TMP"
 export TMUX_TMPDIR
 
@@ -17,8 +19,8 @@ TMUX2="$TEST_TMUX -LtestB$$ -f/dev/null"
 
 cleanup_servers()
 {
-	$TMUX kill-server 2>/dev/null
-	$TMUX2 kill-server 2>/dev/null
+	stop_server $TMUX || exit 1
+	stop_server $TMUX2 || exit 1
 	sleep 0.5
 }
 
@@ -49,14 +51,7 @@ assert_alive()
 
 wait_clients()
 {
-	i=0
-	while [ "$i" -lt 50 ]; do
-		c=$($TMUX list-clients -F x 2>/dev/null | grep -c x)
-		[ "$c" -eq "$1" ] && return 0
-		sleep 0.2
-		i=$((i + 1))
-	done
-	fail "expected $1 clients, have $c"
+	wait_for_clients "$1" $TMUX || fail "expected $1 clients"
 }
 
 wait_for()
@@ -269,6 +264,22 @@ test_customize_mode()
 	assert_alive "customize-mode exit"
 }
 
+test_customize_break_pane()
+{
+	start_client option-break
+	side=$($TMUX split-window -d -P -F '#{pane_id}' \
+	    -t option-break:0 'cat') || fail "customize split failed"
+
+	$TMUX customize-mode -t "$side" || fail "customize-mode failed"
+	wait_mode "$side" 1
+	$TMUX break-pane -d -s "$side" || fail "customize break-pane failed"
+
+	assert_alive "customize-mode break-pane"
+	wait_mode "$side" 1
+	$TMUX send-keys -t "$side" q || fail "customize-mode quit failed"
+	wait_mode "$side" 0
+}
+
 test_copy_mode()
 {
 	start_client copy-a 'i=0; while [ $i -lt 200 ]; do echo "copy mutation line $i"; i=$((i + 1)); done; cat'
@@ -302,6 +313,7 @@ test_choose_tree
 test_choose_buffer
 test_choose_client
 test_customize_mode
+test_customize_break_pane
 test_copy_mode
 cleanup
 exit 0

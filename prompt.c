@@ -1,4 +1,4 @@
-/* $OpenBSD: prompt.c,v 1.5 2026/07/13 10:29:17 nicm Exp $ */
+/* $OpenBSD: prompt.c,v 1.8 2026/10/13 07:56:00 nicm Exp $ */
 
 /*
  * Copyright (c) 2026 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -1334,7 +1334,7 @@ process_key:
 		if (pr->index != size) {
 			memmove(pr->buffer + pr->index,
 			    pr->buffer + pr->index + 1,
-			    (size + 1 - pr->index) *
+			    (size - pr->index) *
 			    sizeof *pr->buffer);
 			goto changed;
 		}
@@ -1493,9 +1493,11 @@ append_key:
 		utf8_set(&tmp, key);
 		if (key <= 0x1f || key == 0x7f)
 			tmp.width = 2;
-	} else if (KEYC_IS_UNICODE(key))
+	} else if (KEYC_IS_UNICODE(key)) {
 		utf8_to_data(key, &tmp);
-	else
+		if (tmp.size == 0)
+			return (PROMPT_KEY_HANDLED);
+	} else
 		return (PROMPT_KEY_HANDLED);
 
 	pr->buffer = xreallocarray(pr->buffer, size + 2,
@@ -1553,14 +1555,25 @@ prompt_complete_add(char ***list, u_int *size, const char *s)
 
 /* Build completion list. */
 static char **
-prompt_complete_commands(u_int *size, const char *s)
+prompt_complete_commands(u_int *size, const char *s, int at_start)
 {
-	char				**list = NULL, *tmp;
-	const char			*value, *cp;
-	const struct cmd_entry		**cmdent;
-	size_t				 slen = strlen(s), valuelen;
-	struct options_entry		*o;
-	struct options_array_item	*a;
+	char				 **list = NULL, *tmp;
+	const char			 **layout, *value, *cp;
+	const struct cmd_entry		 **cmdent;
+	const struct options_table_entry  *oe;
+	size_t				  slen = strlen(s), valuelen;
+	struct options_entry		 *o;
+	struct options_array_item	 *a;
+	const char			 *layouts[] = {
+		"even-horizontal",
+		"even-vertical",
+		"main-horizontal",
+		"main-horizontal-mirrored",
+		"main-vertical",
+		"main-vertical-mirrored",
+		"tiled",
+		NULL
+	};
 
 	*size = 0;
 	for (cmdent = cmd_table; *cmdent != NULL; cmdent++) {
@@ -1585,6 +1598,16 @@ prompt_complete_commands(u_int *size, const char *s)
 		next:
 			a = options_array_next(a);
 		}
+	}
+	if (at_start)
+		return (list);
+	for (oe = options_table; oe->name != NULL; oe++) {
+		if (strncmp(oe->name, s, slen) == 0)
+			prompt_complete_add(&list, size, oe->name);
+	}
+	for (layout = layouts; *layout != NULL; layout++) {
+		if (strncmp(*layout, s, slen) == 0)
+			prompt_complete_add(&list, size, *layout);
 	}
 	return (list);
 }
@@ -1669,11 +1692,10 @@ prompt_complete(struct prompt *pr, const char *word, u_int offset)
 	char	**list = NULL, *out = NULL;
 	u_int	  size = 0, i;
 
-	if (pr->type != PROMPT_TYPE_COMMAND || offset != 0 ||
-	    *word == '\0')
+	if (pr->type != PROMPT_TYPE_COMMAND || *word == '\0')
 		return (NULL);
 
-	list = prompt_complete_commands(&size, word);
+	list = prompt_complete_commands(&size, word, offset == 0);
 	if (size == 0) {
 		free(list);
 		return (NULL);

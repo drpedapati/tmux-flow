@@ -1,4 +1,4 @@
-/* $OpenBSD: client.c,v 1.166 2026/07/10 15:45:11 nicm Exp $ */
+/* $OpenBSD: client.c,v 1.168 2026/08/17 20:14:31 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -276,14 +276,14 @@ client_main(struct event_base *base, int argc, char **argv, uint64_t flags,
 	proc_set_signals(client_proc, client_signal);
 
 	/* Save the flags. */
-	client_flags = flags;
+	client_flags = flags|CLIENT_WRITE_ACK;
 	log_debug("flags are %#llx", (unsigned long long)client_flags);
 
 	/* Initialize the client socket and start the server. */
 #ifdef HAVE_SYSTEMD
 	if (systemd_activated()) {
 		/* socket-based activation, do not even try to be a client. */
-		fd = server_start(client_proc, flags, base, 0, NULL);
+		fd = server_start(client_proc, flags, base, -1, NULL);
 	} else
 #endif
 	fd = client_connect(base, socket_path, client_flags);
@@ -712,6 +712,9 @@ client_dispatch_wait(struct imsg *imsg)
 		fprintf(stderr, "server version is too old for client\n");
 		proc_exit(client_proc);
 		break;
+	default:
+		log_debug("unknown message type %u", imsg->hdr.type);
+		break;
 	}
 }
 
@@ -797,6 +800,9 @@ client_dispatch_attached(struct imsg *imsg)
 
 		system(data);
 		proc_send(client_peer, MSG_UNLOCK, -1, NULL, 0);
+		break;
+	default:
+		log_debug("unknown message type %u", imsg->hdr.type);
 		break;
 	}
 }

@@ -1,4 +1,4 @@
-/* $OpenBSD: cmd-find.c,v 1.87 2026/07/17 12:42:51 nicm Exp $ */
+/* $OpenBSD: cmd-find.c,v 1.89 2026/10/15 07:51:50 nicm Exp $ */
 
 /*
  * Copyright (c) 2015 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -388,9 +388,11 @@ cmd_find_get_window_with_session(struct cmd_find_state *fs, const char *window)
 
 	/* Try as an offset. */
 	if (!exact && (window[0] == '+' || window[0] == '-')) {
-		if (window[1] != '\0')
-			n = strtonum(window + 1, 1, INT_MAX, NULL);
-		else
+		if (window[1] != '\0') {
+			n = strtonum(window + 1, 1, INT_MAX, &errstr);
+			if (errstr != NULL)
+				return (-1);
+		} else
 			n = 1;
 		s = fs->s;
 		if (fs->flags & CMD_FIND_WINDOW_INDEX) {
@@ -626,9 +628,11 @@ cmd_find_get_pane_with_window(struct cmd_find_state *fs, const char *pane)
 
 	/* Try as an offset. */
 	if (pane[0] == '+' || pane[0] == '-') {
-		if (pane[1] != '\0')
-			n = strtonum(pane + 1, 1, INT_MAX, NULL);
-		else
+		if (pane[1] != '\0') {
+			n = strtonum(pane + 1, 1, INT_MAX, &errstr);
+			if (errstr != NULL)
+				return (-1);
+		} else
 			n = 1;
 		wp = fs->w->active;
 		if (pane[0] == '+')
@@ -1015,6 +1019,7 @@ cmd_find_target(struct cmd_find_state *fs, struct cmdq_item *item,
 			cmdq_error(item, "no current client");
 			goto error;
 		}
+		fs->s = c->session;
 		fs->wl = c->session->curw;
 		fs->wp = c->session->curw->window->active;
 		fs->w = c->session->curw->window;

@@ -1,4 +1,4 @@
-/* $OpenBSD: input.c,v 1.269 2026/07/20 11:16:33 nicm Exp $ */
+/* $OpenBSD: input.c,v 1.280 2026/10/21 13:45:20 nicm Exp $ */
 
 /*
  * Copyright (c) 2007 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -98,10 +98,8 @@ struct input_param {
 /* Input parser context. */
 struct input_ctx {
 	struct window_pane	       *wp;
-	struct bufferevent	       *event;
 	struct screen_write_ctx		ctx;
 	struct colour_palette	       *palette;
-	struct client		       *c;
 
 	struct input_cell		cell;
 	struct input_cell		old_cell;
@@ -145,6 +143,9 @@ struct input_ctx {
 	 */
 	struct evbuffer			*since_ground;
 	struct event			 ground_timer;
+#ifdef ENABLE_IMAGES
+	void				*kitty_state;
+#endif
 };
 
 /* Helper functions. */
@@ -827,7 +828,6 @@ input_start_ground_timer(struct input_ctx *ictx)
 {
 	struct timeval	tv = { .tv_sec = 5, .tv_usec = 0 };
 
-	event_del(&ictx->ground_timer);
 	event_add(&ictx->ground_timer, &tv);
 }
 
@@ -873,16 +873,13 @@ input_restore_state(struct input_ctx *ictx)
 
 /* Initialise input parser. */
 struct input_ctx *
-input_init(struct window_pane *wp, struct bufferevent *bev,
-    struct colour_palette *palette, struct client *c)
+input_init(struct window_pane *wp, struct colour_palette *palette)
 {
 	struct input_ctx	*ictx;
 
 	ictx = xcalloc(1, sizeof *ictx);
 	ictx->wp = wp;
-	ictx->event = bev;
 	ictx->palette = palette;
-	ictx->c = c;
 
 	ictx->input_space = INPUT_BUF_START;
 	ictx->input_buf = xmalloc(INPUT_BUF_START);
@@ -916,6 +913,9 @@ input_free(struct input_ctx *ictx)
 	event_del(&ictx->request_timer);
 
 	free(ictx->input_buf);
+#ifdef ENABLE_IMAGES
+	kitty_free_state(ictx->kitty_state);
+#endif
 	evbuffer_free(ictx->since_ground);
 	event_del(&ictx->ground_timer);
 
@@ -938,6 +938,7 @@ input_reset(struct input_ctx *ictx, int clear)
 			screen_write_start_pane(sctx, wp, &wp->base);
 		else
 			screen_write_start(sctx, &wp->base);
+		sctx->flags |= SCREEN_WRITE_INPUT;
 		screen_write_reset(sctx);
 		screen_write_stop(sctx);
 	}
@@ -1049,6 +1050,7 @@ input_parse_buffer(struct window_pane *wp, const u_char *buf, size_t len)
 	if (len == 0)
 		return;
 
+	wp->output_generation++;
 	window_update_activity(wp->window);
 	if (~wp->flags & PANE_ACTIVITY) {
 		wp->flags |= PANE_ACTIVITY;
@@ -1065,6 +1067,7 @@ input_parse_buffer(struct window_pane *wp, const u_char *buf, size_t len)
 		screen_write_start_pane(sctx, wp, &wp->base);
 	else
 		screen_write_start(sctx, &wp->base);
+	sctx->flags |= SCREEN_WRITE_INPUT;
 
 	log_debug("%s: %%%u %s, %zu bytes: %.*s", __func__, wp->id,
 	    ictx->state->name, len, (int)len, buf);
@@ -1084,6 +1087,7 @@ input_parse_screen(struct input_ctx *ictx, struct screen *s,
 		return;
 
 	screen_write_start_callback(sctx, s, cb, arg);
+	sctx->flags |= SCREEN_WRITE_INPUT;
 	input_parse(ictx, buf, len);
 	screen_write_stop(sctx);
 }
@@ -1160,18 +1164,29 @@ input_get(struct input_ctx *ictx, u_int validx, int minval, int defval)
 	return (retval);
 }
 
+/* Get the pane's bufferevent to send replies to. */
+static struct bufferevent *
+input_get_event(struct input_ctx *ictx)
+{
+	if (ictx->wp == NULL)
+		return (NULL);
+	return (ictx->wp->event);
+}
+
 /* Send reply. */
 static void
 input_send_reply(struct input_ctx *ictx, const char *reply)
 {
-	if (ictx->event != NULL) {
+	struct bufferevent	*bev = input_get_event(ictx);
+
+	if (bev != NULL) {
 		log_debug("%s: %s", __func__, reply);
-		bufferevent_write(ictx->event, reply, strlen(reply));
+		bufferevent_write(bev, reply, strlen(reply));
 	}
 }
 
 /* Reply to terminal query. */
-static void printflike(3, 4)
+void printflike(3, 4)
 input_reply(struct input_ctx *ictx, int add, const char *fmt, ...)
 {
 	struct input_request	*ir;
@@ -1583,7 +1598,7 @@ input_csi_dispatch(struct input_ctx *ictx)
 		case -1:
 			break;
 		case 0:
-#ifdef ENABLE_SIXEL
+#ifdef ENABLE_IMAGES
 			input_reply(ictx, 1, "\033[?1;2;4c");
 #else
 			input_reply(ictx, 1, "\033[?1;2c");
@@ -1801,6 +1816,8 @@ input_csi_dispatch(struct input_ctx *ictx)
 			break;
 
 		m = screen_size_x(s) - s->cx;
+		if (s->mode & MODE_WRAP)
+			m += screen_size_x(s);
 		if (n > m)
 			n = m;
 
@@ -1978,7 +1995,7 @@ input_csi_dispatch_rm_private(struct input_ctx *ictx)
 			screen_write_mode_clear(sctx, MODE_BRACKETPASTE);
 			break;
 		case 2026:
-			screen_write_stop_sync(ictx->wp);
+			screen_write_end_sync(sctx);
 			break;
 		case 2031:
 			screen_write_mode_clear(sctx, MODE_THEME_UPDATES);
@@ -2021,6 +2038,7 @@ static void
 input_csi_dispatch_sm_private(struct input_ctx *ictx)
 {
 	struct screen_write_ctx	*sctx = &ictx->ctx;
+	struct window_pane	*wp = ictx->wp;
 	struct grid_cell	*gc = &ictx->cell.cell;
 	u_int			 i;
 
@@ -2082,13 +2100,13 @@ input_csi_dispatch_sm_private(struct input_ctx *ictx)
 			break;
 		case 2031:
 			screen_write_mode_set(sctx, MODE_THEME_UPDATES);
-			if (ictx->wp != NULL) {
-				ictx->wp->last_theme = window_pane_get_theme(ictx->wp);
-				ictx->wp->flags &= ~PANE_THEMECHANGED;
+			if (wp != NULL) {
+				wp->last_theme = window_pane_get_theme(wp);
+				wp->flags &= ~PANE_THEMECHANGED;
 			}
 			break;
 		case 2026:
-			screen_write_start_sync(ictx->wp);
+			screen_write_start_sync(wp);
 			break;
 		default:
 			log_debug("%s: unknown '%c'", __func__, ictx->ch);
@@ -2101,7 +2119,7 @@ input_csi_dispatch_sm_private(struct input_ctx *ictx)
 static void
 input_csi_dispatch_sm_graphics(__unused struct input_ctx *ictx)
 {
-#ifdef ENABLE_SIXEL
+#ifdef ENABLE_IMAGES
 	int	n, m, o;
 
 	if (ictx->param_list_len > 3)
@@ -2626,7 +2644,7 @@ input_dcs_dispatch(struct input_ctx *ictx)
 	const char		 prefix[] = "tmux;";
 	const u_int		 prefixlen = (sizeof prefix) - 1;
 	long long		 allow_passthrough = 0;
-#ifdef ENABLE_SIXEL
+#ifdef ENABLE_IMAGES
 	struct window		*w;
 	struct sixel_image	*si;
 	int			 p2;
@@ -2642,7 +2660,7 @@ input_dcs_dispatch(struct input_ctx *ictx)
 		return (0);
 	}
 
-#ifdef ENABLE_SIXEL
+#ifdef ENABLE_IMAGES
 	if (wp != NULL && buf[0] == 'q' && ictx->interm_len == 0) {
 		w = wp->window;
 		if (input_split(ictx) != 0)
@@ -2652,7 +2670,7 @@ input_dcs_dispatch(struct input_ctx *ictx)
 			p2 = 0;
 		si = sixel_parse(buf, len, p2, w->xpixel, w->ypixel);
 		if (si != NULL)
-			screen_write_sixelimage(sctx, si, ictx->cell.cell.bg);
+			sixel_write(sctx, si, ictx->cell.cell.bg);
 	}
 #endif
 
@@ -2794,15 +2812,25 @@ input_exit_apc(struct input_ctx *ictx)
 {
 	struct screen_write_ctx	*sctx = &ictx->ctx;
 	struct window_pane	*wp = ictx->wp;
+	u_char			*buf = ictx->input_buf;
+	size_t			 len = ictx->input_len;
 
 	if (ictx->flags & INPUT_DISCARD)
 		return;
-	log_debug("%s: \"%s\"", __func__, ictx->input_buf);
+	log_debug("%s: \"%s\" (size %zu)", __func__, buf, len);
+
+#ifdef ENABLE_IMAGES
+	if (wp != NULL && len > 1 && buf[0] == 'G') {
+		kitty_parse_input(ictx, wp, sctx, ictx->cell.cell.bg,
+		    &ictx->kitty_state, buf, len);
+		return;
+	}
+#endif
 
 	if (wp != NULL &&
 	    options_get_number(wp->options, "allow-set-title") &&
-	    screen_set_title(sctx->s, ictx->input_buf, 1)) {
-		input_fire_pane_title_changed(wp, ictx->input_buf);
+	    screen_set_title(sctx->s, buf, 1)) {
+		input_fire_pane_title_changed(wp, buf);
 		server_redraw_window_borders(wp->window);
 		server_status_window(wp->window);
 	}
@@ -3220,6 +3248,52 @@ input_osc_133_exit_status(const char *p)
 	return (status);
 }
 
+/* Parse and clean the URL-encoded command line from OSC 133 C. */
+static char *
+input_osc_133_command_line(const char *p)
+{
+	const char	*end;
+	char		 line[16385], h[3] = { 0 };
+	size_t		 size = 0;
+	u_char		 ch;
+
+	if (p[1] != ';')
+		return (NULL);
+	p += 2;
+	for (;;) {
+		end = strchr(p, ';');
+		if (end == NULL)
+			end = p + strlen(p);
+		if (end - p >= 12 && strncmp(p, "cmdline_url=", 12) == 0)
+			break;
+		if (*end == '\0')
+			return (NULL);
+		p = end + 1;
+	}
+	p += 12;
+	while (p < end) {
+		if (size == sizeof line - 1)
+			return (NULL);
+		ch = *p++;
+		if (ch == '%') {
+			if (end - p < 2 ||
+			    !isxdigit((u_char)p[0]) ||
+			    !isxdigit((u_char)p[1]))
+				return (NULL);
+			h[0] = p[0];
+			h[1] = p[1];
+
+			ch = strtoul(h, NULL, 16);
+			if (ch == '\0')
+				return (NULL);
+			p += 2;
+		}
+		line[size++] = ch;
+	}
+	line[size] = '\0';
+	return (clean_name(line, 1));
+}
+
 /* Fire an OSC 133 command event. */
 static void
 input_fire_command_event(struct window_pane *wp, const char *name)
@@ -3239,6 +3313,8 @@ input_fire_command_event(struct window_pane *wp, const char *name)
 	event_payload_set_window(ep, "window", wp->window);
 	event_payload_set_pane(ep, "pane", wp);
 
+	if (wp->cmd_line != NULL)
+		event_payload_set_string(ep, "command_line", "%s", wp->cmd_line);
 	if (wp->cmd_status != -1)
 		event_payload_set_int(ep, "command_status", wp->cmd_status);
 	if (tstart != 0)
@@ -3279,7 +3355,6 @@ input_osc_133(struct input_ctx *ictx, const char *p)
 	case 'A':
 	case 'N':
 		if (gl != NULL) {
-			memset(&gl->osc133_data, 0, sizeof gl->osc133_data);
 			gl->osc133_data.prompt_col = s->cx;
 			gl->flags |= GRID_LINE_START_PROMPT;
 		}
@@ -3311,6 +3386,8 @@ input_osc_133(struct input_ctx *ictx, const char *p)
 			gl->osc133_data.out_start_col = s->cx;
 		}
 		if (wp != NULL) {
+			free(wp->cmd_line);
+			wp->cmd_line = input_osc_133_command_line(p);
 			wp->cmd_start_time = time(NULL);
 			wp->cmd_end_time = 0;
 			wp->flags |= PANE_CMDRUNNING;
@@ -3339,7 +3416,7 @@ input_osc_133(struct input_ctx *ictx, const char *p)
 static void
 input_osc_52_reply(struct input_ctx *ictx, char clip)
 {
-	struct bufferevent	*ev = ictx->event;
+	struct bufferevent	*ev = input_get_event(ictx);
 	struct paste_buffer	*pb;
 	int			 state;
 	const char		*buf;
@@ -3424,15 +3501,9 @@ input_osc_52(struct input_ctx *ictx, const char *p)
 		return;
 
 	if (wp == NULL) {
-		/* Popup window. */
-		if (ictx->c == NULL) {
-			free(out);
-			return;
-		}
-		tty_set_selection(&ictx->c->tty, clip, out, outlen);
-		paste_add(NULL, out, outlen);
+		free(out);
+		return;
 	} else {
-		/* Normal window. */
 		screen_write_start_pane(&ctx, wp, NULL);
 		screen_write_setselection(&ctx, clip, out, outlen);
 		screen_write_stop(&ctx);
@@ -3485,6 +3556,9 @@ input_reply_clipboard(struct bufferevent *bev, const char *buf, size_t len,
 {
 	char	*out = NULL;
 	int	 outlen = 0;
+
+	if (bev == NULL)
+		return;
 
 	if (buf != NULL && len != 0) {
 		if (len >= ((size_t)INT_MAX * 3 / 4) - 1)
@@ -3540,7 +3614,6 @@ input_start_request_timer(struct input_ctx *ictx)
 {
 	struct timeval	tv = { .tv_sec = 0, .tv_usec = 100000 };
 
-	event_del(&ictx->request_timer);
 	event_add(&ictx->request_timer, &tv);
 }
 
@@ -3642,7 +3715,7 @@ static void
 input_request_clipboard_reply(struct input_request *ir, void *data)
 {
 	struct input_ctx			*ictx = ir->ictx;
-	struct bufferevent			*ev = ictx->event;
+	struct bufferevent			*ev = input_get_event(ictx);
 	struct input_request_clipboard_data	*cd = data;
 	int					 state;
 	char					*copy;

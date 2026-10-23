@@ -1,4 +1,4 @@
-/* $OpenBSD: cmd-queue.c,v 1.122 2026/08/03 13:38:42 nicm Exp $ */
+/* $OpenBSD: cmd-queue.c,v 1.125 2026/10/15 07:25:07 nicm Exp $ */
 
 /*
  * Copyright (c) 2013 Nicholas Marriott <nicholas.marriott@gmail.com>
@@ -580,6 +580,9 @@ cmdq_fire_command(struct cmdq_item *item)
 	int			 flags, quiet = 0;
 	char			*tmp;
 
+	if (item->client != NULL && (item->client->flags & CLIENT_DEAD))
+		return (CMD_RETURN_ERROR);
+
 	if (cfg_finished)
 		cmdq_add_message(item);
 	if (log_get_level() > 1) {
@@ -590,6 +593,15 @@ cmdq_fire_command(struct cmdq_item *item)
 
 	flags = !!(state->flags & CMDQ_STATE_CONTROL);
 	cmdq_guard(item, "begin", flags);
+
+	if (flags &&
+	    saved != NULL &&
+	    (saved->flags & CLIENT_READONLY) &&
+	    (~entry->flags & CMD_READONLY)) {
+		cmdq_error(item, "client is read-only");
+		retval = CMD_RETURN_ERROR;
+		goto out;
+	}
 
 	if (item->client == NULL)
 		item->client = cmd_find_client(item, NULL, 1);
@@ -850,7 +862,18 @@ cmdq_error(struct cmdq_item *item, const char *fmt, ...)
 
 	if (c == NULL) {
 		cmd_get_source(cmd, &file, &line);
-		cfg_add_cause("%s:%u: %s", file, line, msg);
+		if (!cfg_finished) {
+			if (file != NULL)
+				cfg_add_cause("%s:%u: %s", file, line, msg);
+			else
+				cfg_add_cause("%s", msg);
+		} else {
+			if (file != NULL) {
+				server_add_message("message: %s:%u: %s", file,
+				    line, msg);
+			} else
+				server_add_message("message: %s", msg);
+		}
 	} else if (c->session == NULL || (c->flags & CLIENT_CONTROL)) {
 		server_add_message("%s message: %s", c->name, msg);
 		if (~c->flags & CLIENT_UTF8) {
